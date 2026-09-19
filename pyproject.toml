@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "capsule-corp"
+version = "0.1.0"
+description = "A terminal catalogue of reproducible, pre-registered research capsules"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Lenz Pracher", email = "lenz.pracher@gmail.com" }]
+keywords = ["research", "reproducibility", "pre-registration", "llm", "tui"]
+dependencies = [
+    "typer>=0.12",
+    "textual>=0.80",
+    "pydantic>=2.7,<3",
+    "tomlkit>=0.13",
+    "rich>=13",
+    "platformdirs>=4",
+]
+
+[project.urls]
+Homepage = "https://github.com/lenzpracher/capsule-corp"
+Repository = "https://github.com/lenzpracher/capsule-corp"
+
+[project.scripts]
+capsule = "capsule_corp.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "W",  # pycodestyle warnings
+]
+ignore = []
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["capsule_corp"]
+combine-as-imports = true
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_optional = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
