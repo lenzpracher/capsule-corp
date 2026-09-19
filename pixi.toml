@@ -14,6 +14,7 @@ pydantic = ">=2.7,<3"
 tomlkit = ">=0.13"
 rich = ">=13"
 platformdirs = ">=4"
+mcp = ">=2.2,<3"
 
 [host-dependencies]
 pip = "*"
@@ -31,10 +32,12 @@ build-wheel = "python -m build --no-isolation --wheel ."
 [feature.test.dependencies]
 pytest = ">=8"
 pytest-cov = "*"
+anyio = ">=4.15.1,<5"
 
 [feature.test.tasks]
 test = "pytest tests/ -v --cov=capsule_corp"
 test-coverage = "pytest tests/ -v --cov=capsule_corp --cov-report=term-missing"
+test-integration = { cmd = "pytest tests/test_integration.py -v -s -m integration -p no:cacheprovider", env = { CAPSULE_CORP_INTEGRATION = "1" } }
 
 [feature.lint.dependencies]
 pre-commit = "*"
