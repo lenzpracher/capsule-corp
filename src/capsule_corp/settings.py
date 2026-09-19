@@ -48,6 +48,18 @@ class AgentSettings(BaseModel):
     timeout_seconds: int = 3600
 
 
+class EditorSettings(BaseModel):
+    """How to open a capsule in an external editor."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Tried in order until one is found on PATH; $VISUAL and $EDITOR are consulted
+    # first at call time, so this is only the fallback for an unconfigured shell.
+    candidates: list[str] = Field(default_factory=lambda: ["code", "cursor", "zed", "subl", "vim", "nano"])
+    # Set to pin one editor and skip discovery entirely.
+    command: str | None = None
+
+
 class McpServer(BaseModel):
     """An MCP server made available to capsule runs."""
 
@@ -103,6 +115,7 @@ class Settings(BaseModel):
 
     pixi: PixiSettings = Field(default_factory=PixiSettings)
     agent: AgentSettings = Field(default_factory=AgentSettings)
+    editor: EditorSettings = Field(default_factory=EditorSettings)
     executors: ExecutorSettings = Field(default_factory=ExecutorSettings)
     mcp_servers: list[McpServer] = Field(default_factory=list)
 

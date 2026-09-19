@@ -62,6 +62,9 @@ class CapsuleCorpApp(App[None]):
         Binding("d", "design_capsule", "Design"),
         Binding("f", "freeze_capsule", "Freeze"),
         Binding("i", "implement_capsule", "Implement"),
+        Binding("e", "browse_code", "Code"),
+        Binding("o", "open_editor", "Open in editor"),
+        Binding("x", "export_capsule", "Export"),
         Binding("s", "show_settings", "Settings"),
         Binding("ctrl+r", "reload", "Reload"),
     ]
@@ -150,9 +153,15 @@ class CapsuleCorpApp(App[None]):
         if capsule.question:
             lines += ["", "[dim]question[/]", capsule.question]
 
+        revisions = self.catalogue.revisions(ref)
+        if revisions:
+            lines.append(f"[yellow]revised   {len(revisions)}× after freezing[/]")
+
         prereg = self.catalogue.load_prereg(ref)
         if prereg is not None:
             lines += ["", "[dim]hypothesis[/]", prereg.hypothesis]
+            lines += ["", f"[dim]assumptions ({len(prereg.assumptions)})[/]"]
+            lines += [f"  • {a}" for a in prereg.assumptions] or ["  [dim]none recorded[/]"]
             if prereg.checks:
                 lines += ["", "[dim]registered checks[/]"]
                 lines += [f"  • {c.id} [dim]({c.kind})[/]" for c in prereg.checks]
@@ -265,6 +274,43 @@ class CapsuleCorpApp(App[None]):
         self._busy = True
         self.log_line(f"[cyan]verifying[/] {ref.capsule.id}")
         self._verify_worker(ref)
+
+    def action_browse_code(self) -> None:
+        """Read (and edit) the capsule's files without leaving the interface."""
+        ref = self._current()
+        if ref is None:
+            return
+        from capsule_corp.tui.code import CodeScreen
+
+        self.push_screen(CodeScreen(ref, frozen=self.catalogue.is_frozen(ref)))
+
+    def action_open_editor(self) -> None:
+        """Hand the capsule to the configured external editor, e.g. VS Code."""
+        ref = self._current()
+        if ref is None:
+            return
+        from capsule_corp.editor import EditorError, open_in_editor
+
+        try:
+            command = open_in_editor(ref.path, self.settings.editor)
+        except EditorError as exc:
+            self.log_line(f"[red]{exc}[/]")
+            return
+        self.log_line(f"[green]opened[/] {ref.capsule.dirname} [dim]in {command}[/]")
+
+    def action_export_capsule(self) -> None:
+        """Export the capsule as a supplementary-materials bundle."""
+        ref = self._current()
+        if ref is None:
+            return
+        from capsule_corp.export import export_capsule
+
+        try:
+            result = export_capsule(self.catalogue, ref, "bundle")
+        except Exception as exc:
+            self.log_line(f"[red]export failed:[/] {exc}")
+            return
+        self.log_line(f"[green]exported[/] [dim]{result.path}[/]")
 
     def action_show_settings(self) -> None:
         """Show effective settings and where they are edited."""

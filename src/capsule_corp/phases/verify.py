@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -114,6 +115,7 @@ def run_judge(
     settings: Settings,
     workspace: Path,
     events_path: Path | None = None,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
 ) -> JudgeVerdict:
     """Run the blinded judge in a prepared workspace."""
     prompt = JUDGE_PROMPT.format(
@@ -130,6 +132,7 @@ def run_judge(
             no_builtin_tools=True,
             tools=("read", "list", "glob", "grep"),
             timeout_seconds=settings.agent.timeout_seconds,
+            on_event=on_event,
         ),
         events_path=events_path,
     )
@@ -164,6 +167,7 @@ def verify(
     *,
     strict: bool = False,
     skip_judge: bool = False,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
 ) -> Verification:
     """Verify a capsule and persist the record to ``verification.json``."""
     catalogue.verify_frozen(ref)
@@ -181,7 +185,9 @@ def verify(
         run_dir = catalogue.new_run_dir(ref, phase="judge")
         workspace = run_dir / "blinded"
         build_blinded_workspace(ref, workspace)
-        judge = run_judge(ref, prereg, runner, settings, workspace, events_path=run_dir / "events.jsonl")
+        judge = run_judge(
+            ref, prereg, runner, settings, workspace, events_path=run_dir / "events.jsonl", on_event=on_event
+        )
         catalogue.write_run_meta(run_dir, phase="judge", provenance=judge.provenance, ok=True)
         # The copied workspace is redundant with the capsule itself and can be large.
         shutil.rmtree(workspace, ignore_errors=True)

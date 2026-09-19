@@ -77,23 +77,45 @@ capsule init ~/research          # create a catalogue
 capsule mkdir optimization       # organise it however you like
 
 capsule new "Does LR warmup lower final loss?" --folder optimization
-capsule design 0001              # write the question and the pre-registration
+capsule design 0001              # write the pre-registration; re-run to revise it
 capsule freeze 0001              # lock it; predictions can no longer change
 capsule implement 0001           # write the code
 capsule run 0001 --on slurm      # local (default), slurm, ssh, or modal
 capsule verify 0001              # checks, then the blinded judge
 
+capsule open 0001                # read the code in VS Code
+capsule export 0001              # a supplementary-materials bundle for a paper
 capsule tui                      # browse and drive it interactively
 capsule mcp                      # serve the catalogue to any MCP client
 capsule search warmup
 ```
 
+Commands are listed in `capsule --help` in the order you run them, grouped by purpose,
+because that sequence is the method rather than an implementation detail.
+
 ## Interface
 
 `capsule tui` opens a Textual interface over the same library the CLI uses: a folder
 tree, a detail pane showing the pre-registration and the verdict, a settings view, and
-`r`un / `v`erify / `d`esign / `f`reeze / `i`mplement keybinds. Phases run in worker
-threads, so the interface stays responsive while a model is working.
+`r`un / `v`erify / `d`esign / `f`reeze / `i`mplement keybinds. Press `e` for a built-in
+file browser and editor with syntax highlighting, or `o` to open the capsule in
+VS Code. Phases run in worker threads, so the interface stays responsive while a model
+is working.
+
+Long phases stream their progress as they run — each file the agent writes, each
+command it runs, a live token count — so you can tell a working agent from a hung one.
+
+## Attaching capsules to papers
+
+```bash
+capsule export 0001                     # supplementary-materials zip
+capsule export 0001 --format markdown   # an appendix
+capsule export 0001 --format html       # one self-contained file
+```
+
+Every export carries the pre-registration hash and the provenance, and discloses any
+revision the registration went through after being frozen. See
+[`docs/export.md`](docs/export.md).
 
 ## Running elsewhere
 

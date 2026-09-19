@@ -7,20 +7,25 @@ TUI and the MCP server can offer the same operations without going through argv.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.tree import Tree
+from typer.core import TyperGroup
 
 from capsule_corp import __version__
+from capsule_corp.editor import EditorError, open_in_editor
 from capsule_corp.executors import EXECUTOR_NAMES, ExecutorUnavailableError, get_executor, spec_from_settings
+from capsule_corp.export import FORMATS, export_capsule
 from capsule_corp.index import Index
 from capsule_corp.models import CapsuleStatus
 from capsule_corp.phases import design as run_design, implement as run_implement, scaffold_capsule
+from capsule_corp.phases.design import MAX_ASSUMPTIONS
 from capsule_corp.phases.verify import verify as run_verify
+from capsule_corp.progress import PhaseReporter
 from capsule_corp.runners import RunnerError, Usage, get_runner
 from capsule_corp.settings import global_settings_path, load_settings, project_settings_path, save_settings
 from capsule_corp.store import CapsuleRef, Catalogue, CatalogueError
@@ -29,14 +34,92 @@ from capsule_corp.ui import styled_status as _styled_status
 console = Console()
 err_console = Console(stderr=True)
 
+# The order `capsule --help` lists commands in. Lifecycle first, in the order you
+# actually run them, because that sequence *is* the method: a capsule is designed,
+# then frozen, and only then implemented. Alphabetical order would put `verify`
+# before `design` and hide that.
+CANONICAL_ORDER = (
+    # Lifecycle, in running order.
+    "new",
+    "design",
+    "freeze",
+    "unfreeze",
+    "implement",
+    "run",
+    "verify",
+    # Browsing.
+    "list",
+    "tree",
+    "show",
+    "search",
+    "open",
+    "export",
+    # Organising.
+    "init",
+    "mkdir",
+    "mv",
+    "rm",
+    # Interfaces.
+    "tui",
+    "mcp",
+    # Setup and maintenance.
+    "doctor",
+    "settings",
+    "scaffold",
+    "reindex",
+    "version",
+)
+
+LIFECYCLE_PANEL = "Lifecycle (in order)"
+BROWSE_PANEL = "Browsing"
+ORGANISE_PANEL = "Organising"
+INTERFACE_PANEL = "Interfaces"
+SETUP_PANEL = "Setup"
+
+
+class CanonicalOrderGroup(TyperGroup):
+    """Lists commands in CANONICAL_ORDER rather than alphabetically."""
+
+    # ctx is annotated Any because Typer vendors its own click, so the precise
+    # Context type lives in the private typer._click module.
+    def list_commands(self, ctx: Any) -> list[str]:
+        ranks = {name: index for index, name in enumerate(CANONICAL_ORDER)}
+        # Anything not listed sorts to the end rather than disappearing.
+        return sorted(self.commands, key=lambda name: (ranks.get(name, len(ranks)), name))
+
+
 app = typer.Typer(
     name="capsule",
+    cls=CanonicalOrderGroup,
     help="A terminal catalogue of reproducible, pre-registered research capsules.",
     no_args_is_help=True,
     add_completion=False,
 )
 settings_app = typer.Typer(help="Inspect and edit preferred tooling and compute settings.", no_args_is_help=True)
-app.add_typer(settings_app, name="settings")
+app.add_typer(settings_app, name="settings", rich_help_panel=SETUP_PANEL)
+
+
+def _revision_note(revisions: list[dict[str, Any]]) -> str:
+    """Revisions are reported wherever the capsule is, not tucked away in a file."""
+    if not revisions:
+        return ""
+    after_results = sum(1 for r in revisions if r.get("results_existed"))
+    detail = f", {after_results} after results existed" if after_results else ""
+    return f"  [yellow](revised {len(revisions)}×{detail})[/]"
+
+
+def _assumption_warning(count: int) -> str:
+    """Only worth saying something when the count is high enough to matter."""
+    return "  [yellow](this design rests on a lot)[/]" if count > MAX_ASSUMPTIONS else ""
+
+
+def _assumption_note(count: int) -> str:
+    """Flag an assumption-heavy design, since each one narrows what the result covers."""
+    if count == 0:
+        return ""
+    if count > MAX_ASSUMPTIONS:
+        return f"[yellow]({count} — this design rests on a lot)[/]"
+    return f"[dim]({count})[/]"
 
 
 def _print_cost(usage: Usage) -> None:
@@ -49,13 +132,13 @@ def _catalogue() -> Catalogue:
     return Catalogue.discover()
 
 
-@app.command()
+@app.command(rich_help_panel=SETUP_PANEL)
 def version() -> None:
     """Print the capsule-corp version."""
     console.print(__version__)
 
 
-@app.command()
+@app.command(rich_help_panel=ORGANISE_PANEL)
 def init(
     path: Annotated[Path, typer.Argument(help="Where to create the catalogue.")] = Path("."),
 ) -> None:
@@ -65,7 +148,7 @@ def init(
     console.print(f"  capsules → {catalogue.capsules_root}")
 
 
-@app.command()
+@app.command(rich_help_panel=LIFECYCLE_PANEL)
 def new(
     title: Annotated[str, typer.Argument(help="Short title, also used for the slug.")],
     folder: Annotated[str, typer.Option("--folder", "-f", help="Folder to create it in.")] = "",
@@ -78,7 +161,7 @@ def new(
     console.print(f"  {ref.path.relative_to(catalogue.root)}")
 
 
-@app.command(name="list")
+@app.command(name="list", rich_help_panel=BROWSE_PANEL)
 def list_capsules(
     folder: Annotated[str, typer.Option("--folder", "-f", help="Only this folder.")] = "",
     status: Annotated[str, typer.Option("--status", "-s", help="Only this status.")] = "",
@@ -106,7 +189,7 @@ def list_capsules(
     console.print(table)
 
 
-@app.command()
+@app.command(rich_help_panel=BROWSE_PANEL)
 def tree() -> None:
     """Show the catalogue as a folder tree."""
     catalogue = _catalogue()
@@ -125,7 +208,7 @@ def tree() -> None:
     console.print(root)
 
 
-@app.command()
+@app.command(rich_help_panel=BROWSE_PANEL)
 def show(ident: Annotated[str, typer.Argument(help="Capsule id, slug, or directory name.")]) -> None:
     """Show a capsule's manifest and pre-registration."""
     catalogue = _catalogue()
@@ -139,7 +222,7 @@ def show(ident: Annotated[str, typer.Argument(help="Capsule id, slug, or directo
         f"status    {_styled_status(capsule.status)}",
         f"folder    {ref.folder or '-'}",
         f"tags      {', '.join(capsule.tags) or '-'}",
-        f"frozen    {'yes' if catalogue.is_frozen(ref) else 'no'}",
+        f"frozen    {'yes' if catalogue.is_frozen(ref) else 'no'}{_revision_note(catalogue.revisions(ref))}",
         f"path      {ref.path.relative_to(catalogue.root)}",
     ]
     if capsule.question:
@@ -148,6 +231,14 @@ def show(ident: Annotated[str, typer.Argument(help="Capsule id, slug, or directo
     prereg = catalogue.load_prereg(ref)
     if prereg is not None:
         body += ["", "[dim]hypothesis[/]", prereg.hypothesis]
+        if prereg.predictions:
+            body += ["", "[dim]predictions[/]"]
+            body += [f"  • {p}" for p in prereg.predictions]
+        # Assumptions are shown unconditionally, including when there are none:
+        # "assumes nothing extra" is itself worth knowing, and a long list is a
+        # signal the result covers less than it appears to.
+        body += ["", f"[dim]assumptions[/] {_assumption_note(len(prereg.assumptions))}"]
+        body += [f"  • {a}" for a in prereg.assumptions] or ["  [dim]none recorded[/]"]
         if prereg.checks:
             body += ["", "[dim]checks[/]"]
             body += [f"  • {c.id} ({c.kind})" for c in prereg.checks]
@@ -155,7 +246,7 @@ def show(ident: Annotated[str, typer.Argument(help="Capsule id, slug, or directo
     console.print(Panel("\n".join(body), border_style="cyan", expand=False))
 
 
-@app.command()
+@app.command(rich_help_panel=ORGANISE_PANEL)
 def mkdir(path: Annotated[str, typer.Argument(help="Folder path within the catalogue.")]) -> None:
     """Create a folder in the catalogue."""
     catalogue = _catalogue()
@@ -163,7 +254,7 @@ def mkdir(path: Annotated[str, typer.Argument(help="Folder path within the catal
     console.print(f"[green]created[/] {created.relative_to(catalogue.root)}")
 
 
-@app.command()
+@app.command(rich_help_panel=ORGANISE_PANEL)
 def mv(
     ident: Annotated[str, typer.Argument(help="Capsule to move.")],
     dest: Annotated[str, typer.Argument(help="Destination folder.")],
@@ -174,7 +265,7 @@ def mv(
     console.print(f"[green]moved[/] {ref.capsule.dirname} → {ref.folder or '/'}")
 
 
-@app.command()
+@app.command(rich_help_panel=ORGANISE_PANEL)
 def rm(
     ident: Annotated[str, typer.Argument(help="Capsule to delete.")],
     yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip the confirmation prompt.")] = False,
@@ -188,7 +279,7 @@ def rm(
     console.print(f"[red]deleted[/] {removed.name}")
 
 
-@app.command()
+@app.command(rich_help_panel=LIFECYCLE_PANEL)
 def freeze(ident: Annotated[str, typer.Argument(help="Capsule to freeze.")]) -> None:
     """Lock a capsule's pre-registration so its predictions can no longer change."""
     catalogue = _catalogue()
@@ -199,12 +290,14 @@ def freeze(ident: Annotated[str, typer.Argument(help="Capsule to freeze.")]) -> 
     console.print("[dim]  predictions and checks are now fixed; implementation can begin[/]")
 
 
-@app.command()
+@app.command(rich_help_panel=LIFECYCLE_PANEL)
 def design(
     ident: Annotated[str, typer.Argument(help="Capsule to design.")],
     note: Annotated[str, typer.Option("--note", "-n", help="Extra constraints for the designer.")] = "",
+    fresh: Annotated[bool, typer.Option("--fresh", help="Start over instead of revising the existing design.")] = False,
+    quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Hide live progress.")] = False,
 ) -> None:
-    """Write the question and the pre-registration, before any code exists."""
+    """Write or revise the pre-registration, before any code exists."""
     catalogue = _catalogue()
     ref = catalogue.get(ident)
     settings = load_settings(catalogue.root)
@@ -216,19 +309,30 @@ def design(
         raise typer.Exit(1) from exc
 
     console.print(f"[cyan]designing[/] {ref.capsule.dirname} [dim](runner: {settings.agent.runner})[/]")
-    outcome = run_design(catalogue, ref, runner, settings, extra_instructions=note)
+    with PhaseReporter(console, "designing", quiet=quiet) as reporter:
+        outcome = run_design(catalogue, ref, runner, settings, extra_instructions=note, on_event=reporter.handle)
+    reporter.final_note()
 
     provenance = outcome.result.provenance
-    console.print(f"[green]designed[/] {ref.capsule.dirname}")
+    console.print(f"[green]{'revised' if outcome.revised else 'designed'}[/] {ref.capsule.dirname}")
     console.print(f"  hypothesis  {outcome.prereg.hypothesis}")
+    console.print(
+        f"  assumptions {len(outcome.prereg.assumptions)}{_assumption_warning(len(outcome.prereg.assumptions))}"
+    )
     console.print(f"  checks      {len(outcome.prereg.checks)}")
     console.print(f"  model       {provenance.provider}/{provenance.model}")
     _print_cost(outcome.result.usage)
-    console.print(f"[dim]  review prereg.toml, then lock it with 'capsule freeze {ref.capsule.id}'[/]")
+    console.print(
+        f"[dim]  review prereg.toml — edit it, or run 'capsule design {ref.capsule.id} -n \"...\"' again —[/]"
+    )
+    console.print(f"[dim]  then lock it with 'capsule freeze {ref.capsule.id}'[/]")
 
 
-@app.command()
-def implement(ident: Annotated[str, typer.Argument(help="Capsule to implement.")]) -> None:
+@app.command(rich_help_panel=LIFECYCLE_PANEL)
+def implement(
+    ident: Annotated[str, typer.Argument(help="Capsule to implement.")],
+    quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Hide live progress.")] = False,
+) -> None:
     """Write the code for a frozen capsule."""
     catalogue = _catalogue()
     ref = catalogue.get(ident)
@@ -241,7 +345,9 @@ def implement(ident: Annotated[str, typer.Argument(help="Capsule to implement.")
         raise typer.Exit(1) from exc
 
     console.print(f"[cyan]implementing[/] {ref.capsule.dirname}")
-    outcome = run_implement(catalogue, ref, runner, settings)
+    with PhaseReporter(console, "implementing", quiet=quiet) as reporter:
+        outcome = run_implement(catalogue, ref, runner, settings, on_event=reporter.handle)
+    reporter.final_note()
 
     provenance = outcome.result.provenance
     console.print(f"[green]implemented[/] {ref.capsule.dirname}")
@@ -250,7 +356,7 @@ def implement(ident: Annotated[str, typer.Argument(help="Capsule to implement.")
     console.print("[dim]  pre-registration hash verified before and after[/]")
 
 
-@app.command()
+@app.command(rich_help_panel=SETUP_PANEL)
 def scaffold(
     ident: Annotated[str, typer.Argument(help="Capsule to scaffold.")],
     overwrite: Annotated[bool, typer.Option("--overwrite", help="Replace existing files.")] = False,
@@ -266,7 +372,46 @@ def scaffold(
         console.print(f"[green]wrote[/] {name}")
 
 
-@app.command()
+@app.command(rich_help_panel=LIFECYCLE_PANEL)
+def unfreeze(
+    ident: Annotated[str, typer.Argument(help="Capsule to unfreeze.")],
+    reason: Annotated[str, typer.Option("--reason", "-r", help="Why. Recorded permanently.")] = "",
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip the confirmation prompt.")] = False,
+) -> None:
+    """Release a frozen pre-registration so it can be revised.
+
+    The superseded version and your reason are archived with the capsule and reported
+    in every view and export, because a prediction revised after the fact is not the
+    same evidence as one that was not.
+    """
+    catalogue = _catalogue()
+    ref = catalogue.get(ident)
+
+    if not catalogue.is_frozen(ref):
+        err_console.print(f"[yellow]capsule {ref.capsule.id} is not frozen[/]")
+        raise typer.Exit(1)
+
+    if not reason:
+        reason = typer.prompt("Reason for unfreezing (recorded permanently)")
+
+    has_results = ref.results_json.is_file()
+    if has_results:
+        console.print(
+            "[yellow]warning:[/] this capsule already has results. Revising a prediction "
+            "after seeing the outcome is the thing pre-registration exists to prevent."
+        )
+        console.print("[dim]  the record will note that results existed at the time.[/]")
+    if not yes:
+        typer.confirm(f"Unfreeze {ref.capsule.dirname}?", abort=True)
+
+    archive = catalogue.unfreeze(ref, reason)
+    console.print(f"[yellow]unfrozen[/] {ref.capsule.dirname}")
+    console.print(f"  superseded version archived to {archive.relative_to(catalogue.root)}")
+    if has_results:
+        console.print("[dim]  the previous verification was moved into the archive; re-verify after revising[/]")
+
+
+@app.command(rich_help_panel=LIFECYCLE_PANEL)
 def run(
     ident: Annotated[str, typer.Argument(help="Capsule to run.")],
     on: Annotated[str, typer.Option("--on", help=f"Where to run it: {', '.join(EXECUTOR_NAMES)}.")] = "",
@@ -310,7 +455,7 @@ def run(
         console.print("[yellow]  warning:[/] no results/results.json was produced")
 
 
-@app.command()
+@app.command(rich_help_panel=LIFECYCLE_PANEL)
 def verify(
     ident: Annotated[str, typer.Argument(help="Capsule to verify.")],
     strict: Annotated[bool, typer.Option("--strict", help="Let the judge's verdict change the outcome.")] = False,
@@ -330,7 +475,10 @@ def verify(
             raise typer.Exit(1) from exc
 
     console.print(f"[cyan]verifying[/] {ref.capsule.dirname}")
-    report = run_verify(catalogue, ref, runner, settings, strict=strict, skip_judge=no_judge)
+    with PhaseReporter(console, "verifying", quiet=no_judge) as reporter:
+        report = run_verify(
+            catalogue, ref, runner, settings, strict=strict, skip_judge=no_judge, on_event=reporter.handle
+        )
 
     for check in report.checks:
         if check.error:
@@ -359,7 +507,7 @@ def verify(
         console.print("[dim]  the hypothesis was not supported; this is a completed capsule, not a failed one[/]")
 
 
-@app.command()
+@app.command(rich_help_panel=INTERFACE_PANEL)
 def tui() -> None:
     """Open the interactive terminal interface."""
     from capsule_corp.tui import CapsuleCorpApp
@@ -367,7 +515,7 @@ def tui() -> None:
     CapsuleCorpApp(_catalogue()).run()
 
 
-@app.command()
+@app.command(rich_help_panel=INTERFACE_PANEL)
 def mcp() -> None:
     """Serve the catalogue over MCP on stdio, for any MCP client to drive."""
     from capsule_corp.mcp_server import serve
@@ -375,7 +523,7 @@ def mcp() -> None:
     serve(_catalogue().root)
 
 
-@app.command()
+@app.command(rich_help_panel=SETUP_PANEL)
 def doctor() -> None:
     """Check that everything capsule-corp depends on is present and configured."""
     from capsule_corp.doctor import run_checks
@@ -402,7 +550,7 @@ def doctor() -> None:
         raise typer.Exit(1)
 
 
-@app.command()
+@app.command(rich_help_panel=SETUP_PANEL)
 def reindex() -> None:
     """Rebuild the search index from the files on disk."""
     catalogue = _catalogue()
@@ -410,7 +558,57 @@ def reindex() -> None:
     console.print(f"[green]indexed[/] {count} capsule(s)")
 
 
-@app.command()
+@app.command(rich_help_panel=BROWSE_PANEL)
+def open(
+    ident: Annotated[str, typer.Argument(help="Capsule to open.")],
+    file: Annotated[str, typer.Option("--file", "-f", help="Open one file instead of the directory.")] = "",
+    editor: Annotated[str, typer.Option("--editor", "-e", help="Editor command, e.g. code.")] = "",
+) -> None:
+    """Open a capsule in your editor (VS Code by default)."""
+    catalogue = _catalogue()
+    ref = catalogue.get(ident)
+    settings = load_settings(catalogue.root)
+
+    target = ref.path / file if file else ref.path
+    if not target.exists():
+        err_console.print(f"[red]error:[/] {target.relative_to(catalogue.root)} does not exist")
+        raise typer.Exit(1)
+
+    try:
+        command = open_in_editor(target, settings.editor, editor or None)
+    except EditorError as exc:
+        err_console.print(f"[red]error:[/] {exc}")
+        raise typer.Exit(1) from exc
+    console.print(f"[green]opened[/] {target.name} [dim]in {command}[/]")
+
+
+@app.command(rich_help_panel=BROWSE_PANEL)
+def export(
+    ident: Annotated[str, typer.Argument(help="Capsule to export.")],
+    fmt: Annotated[str, typer.Option("--format", help=f"One of: {', '.join(FORMATS)}.")] = "bundle",
+    out: Annotated[Path | None, typer.Option("--out", "-o", help="Destination file or directory.")] = None,
+) -> None:
+    """Export a capsule for attaching to a paper.
+
+    `bundle` is a zip of supplementary materials, `markdown` an appendix, and `html`
+    a single self-contained file with the figures inlined.
+    """
+    catalogue = _catalogue()
+    ref = catalogue.get(ident)
+    result = export_capsule(catalogue, ref, fmt, out)
+
+    console.print(f"[green]exported[/] {ref.capsule.dirname} [dim]as {result.format}[/]")
+    console.print(f"  {result.path}  [dim]{result.bytes_written:,} bytes[/]")
+
+    revisions = catalogue.revisions(ref)
+    if revisions:
+        console.print(
+            f"[yellow]note:[/] this capsule's pre-registration was revised {len(revisions)} time(s) "
+            "after freezing; the export says so."
+        )
+
+
+@app.command(rich_help_panel=BROWSE_PANEL)
 def search(
     query: Annotated[str, typer.Argument(help="Full-text query.")],
     limit: Annotated[int, typer.Option("--limit", "-n")] = 20,

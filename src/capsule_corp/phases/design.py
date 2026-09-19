@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from capsule_corp.models import CapsuleStatus, Prereg
-from capsule_corp.prompts import DESIGN_PROMPT, DESIGN_SYSTEM
+from capsule_corp.prompts import DESIGN_PROMPT, DESIGN_SYSTEM, REVISE_PROMPT
 from capsule_corp.runners.base import AgentRequest, AgentResult, Runner
 from capsule_corp.settings import Settings
 from capsule_corp.store import CapsuleRef, Catalogue, CatalogueError, PreregTamperError
 
 MIN_CHECKS = 2
 MAX_CHECKS = 8
+# Soft guidance for the designer, not a hard gate: an honest design that genuinely
+# needs a seventh assumption should say so rather than hide one.
+MAX_ASSUMPTIONS = 6
 
 
 class DesignError(CatalogueError):
@@ -23,6 +28,7 @@ class DesignOutcome:
     ref: CapsuleRef
     prereg: Prereg
     result: AgentResult
+    revised: bool = False
 
 
 def design(
@@ -32,8 +38,15 @@ def design(
     settings: Settings,
     *,
     extra_instructions: str = "",
+    fresh: bool = False,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
 ) -> DesignOutcome:
     """Run the designer agent and validate what it produced.
+
+    Re-running before the capsule is frozen revises the existing pre-registration
+    rather than discarding it, so a design can be iterated on until it is right —
+    which is exactly the phase in which changing your mind is free. Pass ``fresh`` to
+    start over instead.
 
     Refuses to run on a frozen capsule: the whole point of freezing is that the
     registered predictions are final.
@@ -44,21 +57,33 @@ def design(
             "Create a new capsule for a revised question."
         )
 
-    prompt = DESIGN_PROMPT.format(
-        title=ref.capsule.title,
-        question=ref.capsule.question or ref.capsule.title,
-        extra=f"\nADDITIONAL CONSTRAINTS: {extra_instructions}\n" if extra_instructions else "",
-        min_checks=MIN_CHECKS,
-        max_checks=MAX_CHECKS,
-    )
+    existing = catalogue.load_prereg(ref) if ref.prereg_path.is_file() else None
+    revising = existing is not None and not fresh
 
-    run_dir = catalogue.new_run_dir(ref, phase="design")
+    if revising:
+        prompt = REVISE_PROMPT.format(
+            title=ref.capsule.title,
+            question=ref.capsule.question or ref.capsule.title,
+            note=extra_instructions.strip() or "Improve clarity and tighten any check that could not fail.",
+        )
+    else:
+        prompt = DESIGN_PROMPT.format(
+            title=ref.capsule.title,
+            question=ref.capsule.question or ref.capsule.title,
+            extra=f"\nADDITIONAL CONSTRAINTS: {extra_instructions}\n" if extra_instructions else "",
+            min_checks=MIN_CHECKS,
+            max_checks=MAX_CHECKS,
+            max_assumptions=MAX_ASSUMPTIONS,
+        )
+
+    run_dir = catalogue.new_run_dir(ref, phase="revise" if revising else "design")
     result = runner.run(
         AgentRequest(
             prompt=prompt,
             cwd=ref.path,
             system_append=DESIGN_SYSTEM,
             timeout_seconds=settings.agent.timeout_seconds,
+            on_event=on_event,
         ),
         events_path=run_dir / "events.jsonl",
     )
@@ -75,7 +100,7 @@ def design(
         ref.capsule.question = prereg.hypothesis
     catalogue.save(ref)
 
-    return DesignOutcome(ref=ref, prereg=prereg, result=result)
+    return DesignOutcome(ref=ref, prereg=prereg, result=result, revised=revising)
 
 
 def _validated_prereg(catalogue: Catalogue, ref: CapsuleRef) -> Prereg:

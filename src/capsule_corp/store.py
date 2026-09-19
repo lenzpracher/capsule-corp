@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import unicodedata
 from collections.abc import Iterator
@@ -32,6 +33,7 @@ RESULTS = "results"
 RUNS = "runs"
 VERIFICATION = "verification.json"
 REPORT = "REPORT.md"
+PREREG_HISTORY = ".prereg-history"
 
 
 class CatalogueError(Exception):
@@ -291,8 +293,6 @@ class Catalogue:
 
     def remove(self, ident: str) -> Path:
         """Delete a capsule directory and return where it used to be."""
-        import shutil
-
         ref = self.get(ident)
         shutil.rmtree(ref.path)
         return ref.path
@@ -380,6 +380,75 @@ class Catalogue:
         )
         self.set_status(ref, CapsuleStatus.FROZEN)
         return digest
+
+    def revisions(self, ref: CapsuleRef) -> list[dict[str, Any]]:
+        """Every time this capsule's pre-registration was unfrozen, oldest first.
+
+        A capsule with revisions is weaker evidence than one without, and this is how
+        a reader finds that out. Surfaced in `show`, in the TUI, and in every export.
+        """
+        history = ref.path / PREREG_HISTORY
+        if not history.is_dir():
+            return []
+        entries = []
+        for record in sorted(history.glob("*/record.toml")):
+            try:
+                entries.append(_load_toml(record))
+            except (OSError, Exception):
+                continue
+        return entries
+
+    def unfreeze(self, ref: CapsuleRef, reason: str) -> Path:
+        """Release the lock so the pre-registration can be revised.
+
+        This is deliberately not a clean undo. The superseded pre-registration and the
+        stated reason are archived under ``.prereg-history/`` and reported wherever the
+        capsule is shown or exported, because a prediction that was revised after the
+        fact is not the same evidence as one that was not.
+
+        Any existing verification is invalidated: it was evaluated against predictions
+        that no longer apply.
+        """
+        if not ref.lock_path.is_file():
+            raise NotFrozenError(f"capsule {ref.capsule.id} is not frozen")
+        if not reason.strip():
+            raise CatalogueError("unfreezing requires a reason; it is recorded permanently with the capsule")
+
+        # Second-resolution stamps collide when a capsule is revised twice quickly,
+        # which would silently overwrite the earlier record.
+        stamp = utcnow().strftime("%Y%m%dT%H%M%S")
+        history = ref.path / PREREG_HISTORY
+        archive = history / stamp
+        suffix = 1
+        while archive.exists():
+            archive = history / f"{stamp}-{suffix}"
+            suffix += 1
+        archive.mkdir(parents=True)
+
+        digest = self.prereg_digest(ref)
+        shutil.copy2(ref.prereg_path, archive / PREREG)
+        shutil.copy2(ref.lock_path, archive / PREREG_LOCK)
+
+        had_results = ref.results_json.is_file()
+        if ref.verification_path.is_file():
+            shutil.move(str(ref.verification_path), archive / VERIFICATION)
+
+        _dump_toml(
+            {
+                "unfrozen_at": utcnow().isoformat(),
+                "reason": reason.strip(),
+                "superseded_sha256": digest,
+                "git_sha": _git_sha(self.root) or "",
+                # The important distinction: revising before any results exist is
+                # housekeeping; revising after seeing them is a different act.
+                "results_existed": had_results,
+            },
+            archive / "record.toml",
+        )
+
+        ref.lock_path.unlink()
+        self.set_status(ref, CapsuleStatus.DESIGNED)
+        return archive
 
     def is_frozen(self, ref: CapsuleRef) -> bool:
         return ref.lock_path.is_file()
