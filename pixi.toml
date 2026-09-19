@@ -1,0 +1,58 @@
+[project]
+authors = ["Lenz Pracher <lenz.pracher@gmail.com>"]
+channels = ["conda-forge"]
+description = "A terminal catalogue of reproducible, pre-registered research capsules"
+name = "capsule-corp"
+platforms = ["osx-arm64", "linux-64"]
+version = "0.1.0"
+
+[dependencies]
+python = ">=3.12,<3.14"
+typer = ">=0.12"
+textual = ">=0.80"
+pydantic = ">=2.7,<3"
+tomlkit = ">=0.13"
+rich = ">=13"
+platformdirs = ">=4"
+
+[host-dependencies]
+pip = "*"
+
+[feature.build.dependencies]
+python-build = "*"
+wheel = "*"
+setuptools = ">=64"
+setuptools-scm = "*"
+
+[feature.build.tasks]
+postinstall = "pip install --no-build-isolation --no-deps --disable-pip-version-check -e ."
+build-wheel = "python -m build --no-isolation --wheel ."
+
+[feature.test.dependencies]
+pytest = ">=8"
+pytest-cov = "*"
+
+[feature.test.tasks]
+test = "pytest tests/ -v --cov=capsule_corp"
+test-coverage = "pytest tests/ -v --cov=capsule_corp --cov-report=term-missing"
+
+[feature.lint.dependencies]
+pre-commit = "*"
+ruff = "*"
+prettier = "*"
+taplo = "*"
+mypy = "*"
+types-setuptools = "*"
+pre-commit-hooks = "*"
+
+[feature.lint.tasks]
+pre-commit-install = "pre-commit install"
+pre-commit-run = "pre-commit run -a"
+format = "ruff format . && ruff check . --fix --config pyproject.toml"
+typecheck = "mypy src tests"
+
+[environments]
+default = { features = ["test", "build", "lint"] }
+lint = { features = ["lint"], no-default-feature = true }
+test = { features = ["test"], no-default-feature = true }
+build = { features = ["build"], no-default-feature = true }
