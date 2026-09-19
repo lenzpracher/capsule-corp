@@ -39,6 +39,16 @@ test = "pytest tests/ -v --cov=capsule_corp"
 test-coverage = "pytest tests/ -v --cov=capsule_corp --cov-report=term-missing"
 test-integration = { cmd = "pytest tests/test_integration.py -v -s -m integration -p no:cacheprovider", env = { CAPSULE_CORP_INTEGRATION = "1" } }
 
+[feature.docs.dependencies]
+mkdocs-material = ">=9.7"
+# MkDocs 2.0 removes the plugin and theming systems outright with no migration path,
+# which would break this site entirely. Pin until Material supports it.
+mkdocs = ">=1.6,<2"
+
+[feature.docs.tasks]
+docs-serve = "mkdocs serve"
+docs-build = "mkdocs build --strict"
+
 [feature.lint.dependencies]
 pre-commit = "*"
 ruff = "*"
@@ -55,7 +65,8 @@ format = "ruff format . && ruff check . --fix --config pyproject.toml"
 typecheck = "mypy src tests"
 
 [environments]
-default = { features = ["test", "build", "lint"] }
+default = { features = ["test", "build", "lint", "docs"] }
 lint = { features = ["lint"], no-default-feature = true }
 test = { features = ["test"], no-default-feature = true }
 build = { features = ["build"], no-default-feature = true }
+docs = { features = ["docs"], no-default-feature = true }

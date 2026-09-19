@@ -41,13 +41,33 @@ backends are unit-tested but have not yet been pointed at real infrastructure â€
 
 ## Install
 
-Requires [pixi](https://pixi.sh).
+```bash
+curl -fsSL https://lenzpracher.github.io/capsule-corp/install.sh | sh
+```
+
+This puts the `capsule` command in `~/.local/bin` using [uv](https://docs.astral.sh/uv/),
+in its own isolated environment. No sudo. As with any installer of this shape, read
+[the script](install.sh) before piping it to a shell.
+
+Or, equivalently:
+
+```bash
+uv tool install git+https://github.com/lenzpracher/capsule-corp
+```
+
+To hack on capsule-corp itself, clone it and install editable so the command tracks
+your working copy:
 
 ```bash
 git clone https://github.com/lenzpracher/capsule-corp
 cd capsule-corp
-pixi install && pixi run postinstall
+uv tool install --editable .
+pixi install && pixi run postinstall   # for the test and lint tasks
 ```
+
+Then run `capsule doctor`. Two external tools do the real work:
+[pi](https://github.com/earendil-works/pi) writes the capsules, and
+[pixi](https://pixi.sh) manages each capsule's environment.
 
 ## Use
 
@@ -114,6 +134,10 @@ provider-agnostic â€” configure it for Claude, GPT, Gemini, or a local model. ca
 not pin a model; it inherits whatever `pi` is configured with and records what was actually
 used in each capsule's manifest. The runner sits behind a protocol, so other agents can be
 plugged in.
+
+## Documentation
+
+<https://lenzpracher.github.io/capsule-corp>
 
 ## License
 
