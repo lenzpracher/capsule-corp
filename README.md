@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="capsule-corp" width="440">
+</p>
+
 # capsule-corp
 
 Packaging reproducible research questions.
@@ -30,8 +34,9 @@ not treated as a failure.
 
 ## Status
 
-Early. Milestone 1 (catalogue, storage format, CLI) is implemented. The agent loop,
-verification, TUI, remote execution, and MCP server are in progress — see
+Early but complete end to end: catalogue, agent loop, pre-registered verification, TUI,
+remote execution, and the MCP server are all implemented. The Slurm, SSH and Modal
+backends are unit-tested but have not yet been pointed at real infrastructure — see
 [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Install
@@ -47,13 +52,39 @@ pixi install && pixi run postinstall
 ## Use
 
 ```bash
+capsule doctor                   # check pi, pixi and the compute backends
 capsule init ~/research          # create a catalogue
 capsule mkdir optimization       # organise it however you like
+
 capsule new "Does LR warmup lower final loss?" --folder optimization
-capsule freeze 0001              # lock the pre-registration
-capsule list                     # or: capsule tree
+capsule design 0001              # write the question and the pre-registration
+capsule freeze 0001              # lock it; predictions can no longer change
+capsule implement 0001           # write the code
+capsule run 0001 --on slurm      # local (default), slurm, ssh, or modal
+capsule verify 0001              # checks, then the blinded judge
+
+capsule tui                      # browse and drive it interactively
+capsule mcp                      # serve the catalogue to any MCP client
 capsule search warmup
 ```
+
+## Interface
+
+`capsule tui` opens a Textual interface over the same library the CLI uses: a folder
+tree, a detail pane showing the pre-registration and the verdict, a settings view, and
+`r`un / `v`erify / `d`esign / `f`reeze / `i`mplement keybinds. Phases run in worker
+threads, so the interface stays responsive while a model is working.
+
+## Running elsewhere
+
+Capsules run locally by default, and unchanged on Slurm, any SSH host with Docker, or
+Modal. See [`docs/compute.md`](docs/compute.md).
+
+## Driving it from an MCP client
+
+`capsule mcp` serves the catalogue over the Model Context Protocol, including
+`capsule://<id>` resources so an agent can read prior capsules as context. See
+[`docs/mcp.md`](docs/mcp.md).
 
 ## A capsule on disk
 
