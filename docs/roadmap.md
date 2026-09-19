@@ -26,7 +26,7 @@ The check evaluator (restricted AST, no `eval`), the blinded judge, `verificatio
 `REPORT.md`. Blinding is enforced by copying only the permitted files into the judge's
 workspace, not by asking the model nicely.
 
-## M4 — TUI
+## M4 — TUI ✅
 
 Textual application over the same library API: folder tree, capsule detail pane, settings
 screen, run/verify keybinds, and a live view of the run event stream.
@@ -34,13 +34,13 @@ screen, run/verify keybinds, and a live view of the run event stream.
 > Local execution (`capsule run`) shipped early with M3, since the verification slice is
 > untestable without it. M5 generalises it behind the `Executor` protocol.
 
-## M5 — Compute
+## M5 — Compute ✅
 
 `Executor` protocol. `local` first, then `slurm` (sbatch + rsync + poll — note that cluster
 compute nodes usually have no outbound network, so `pi` needs `--offline`) and `ssh_docker`,
 which share a transport layer, then `modal`.
 
-## M6 — MCP
+## M6 — MCP ✅
 
 - capsule-corp **as an MCP server** (`capsule mcp`, stdio): `capsule_list`, `capsule_search`,
   `capsule_get`, `capsule_new`, `capsule_run`, `capsule_verify`. Any MCP client can drive the
@@ -53,3 +53,19 @@ which share a transport layer, then `modal`.
 `pi` has no built-in MCP support; it is provided by the third-party `pi-mcp-adapter`
 extension. `capsule doctor` should install and configure a pinned version. Track
 [earendil-works/pi#563](https://github.com/earendil-works/pi/issues/563) for an official path.
+
+## Verified against real infrastructure
+
+| Piece                                         | Status                                                          |
+| --------------------------------------------- | --------------------------------------------------------------- |
+| design / implement / verify with a live model | exercised end to end (`pixi run test-integration`)              |
+| local executor                                | exercised end to end                                            |
+| MCP server                                    | exercised through the registered tools                          |
+| TUI                                           | exercised through Textual's pilot                               |
+| slurm executor                                | command construction unit-tested; **not run against a cluster** |
+| ssh executor                                  | command construction unit-tested; **not run against a host**    |
+| modal executor                                | helpers unit-tested; **not run against a Modal account**        |
+
+The three remote backends are written against stable, well-documented interfaces, but
+"unit-tested" is not "works". Expect to shake something out the first time each is
+pointed at real infrastructure.

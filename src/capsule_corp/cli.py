@@ -16,7 +16,7 @@ from rich.table import Table
 from rich.tree import Tree
 
 from capsule_corp import __version__
-from capsule_corp.execute import run_local
+from capsule_corp.executors import EXECUTOR_NAMES, ExecutorUnavailableError, get_executor, spec_from_settings
 from capsule_corp.index import Index
 from capsule_corp.models import CapsuleStatus
 from capsule_corp.phases import design as run_design, implement as run_implement, scaffold_capsule
@@ -24,6 +24,7 @@ from capsule_corp.phases.verify import verify as run_verify
 from capsule_corp.runners import RunnerError, Usage, get_runner
 from capsule_corp.settings import global_settings_path, load_settings, project_settings_path, save_settings
 from capsule_corp.store import CapsuleRef, Catalogue, CatalogueError
+from capsule_corp.ui import styled_status as _styled_status
 
 console = Console()
 err_console = Console(stderr=True)
@@ -36,21 +37,6 @@ app = typer.Typer(
 )
 settings_app = typer.Typer(help="Inspect and edit preferred tooling and compute settings.", no_args_is_help=True)
 app.add_typer(settings_app, name="settings")
-
-STATUS_STYLE: dict[CapsuleStatus, str] = {
-    CapsuleStatus.DRAFT: "dim",
-    CapsuleStatus.DESIGNED: "cyan",
-    CapsuleStatus.FROZEN: "yellow",
-    CapsuleStatus.IMPLEMENTED: "blue",
-    CapsuleStatus.RUN: "blue",
-    CapsuleStatus.VERIFIED: "green",
-    CapsuleStatus.REFUTED: "magenta",
-    CapsuleStatus.FAILED: "red",
-}
-
-
-def _styled_status(status: CapsuleStatus) -> str:
-    return f"[{STATUS_STYLE[status]}]{status}[/]"
 
 
 def _print_cost(usage: Usage) -> None:
@@ -283,22 +269,41 @@ def scaffold(
 @app.command()
 def run(
     ident: Annotated[str, typer.Argument(help="Capsule to run.")],
+    on: Annotated[str, typer.Option("--on", help=f"Where to run it: {', '.join(EXECUTOR_NAMES)}.")] = "",
     timeout: Annotated[int, typer.Option("--timeout", help="Seconds before the run is killed.")] = 0,
 ) -> None:
-    """Execute a capsule's experiment locally."""
+    """Execute a capsule's experiment."""
     catalogue = _catalogue()
     ref = catalogue.get(ident)
     settings = load_settings(catalogue.root)
 
-    console.print(f"[cyan]running[/] {ref.capsule.dirname}")
-    outcome = run_local(catalogue, ref, settings, timeout_seconds=timeout or None)
+    backend = on or settings.executors.default
+    try:
+        executor = get_executor(backend, settings)
+    except Exception as exc:
+        err_console.print(f"[red]error:[/] {exc}")
+        raise typer.Exit(1) from exc
+
+    usable, reason = executor.available()
+    if not usable:
+        err_console.print(f"[red]error:[/] executor {backend!r} is not usable here: {reason}")
+        raise typer.Exit(1)
+
+    console.print(f"[cyan]running[/] {ref.capsule.dirname} [dim](on {backend})[/]")
+    spec = spec_from_settings(settings, backend, timeout_seconds=timeout or None)
+    try:
+        outcome = executor.execute(catalogue, ref, settings, spec)
+    except ExecutorUnavailableError as exc:
+        err_console.print(f"[red]error:[/] {exc}")
+        raise typer.Exit(1) from exc
 
     if not outcome.ok:
         err_console.print(f"[red]failed:[/] {outcome.error}")
         err_console.print(f"[dim]  output: {outcome.stdout_path.relative_to(catalogue.root)}[/]")
         raise typer.Exit(1)
 
-    console.print(f"[green]ran[/] {ref.capsule.dirname} in {outcome.duration_seconds:.1f}s")
+    job = f" [dim](job {outcome.job_id})[/]" if outcome.job_id else ""
+    console.print(f"[green]ran[/] {ref.capsule.dirname} in {outcome.duration_seconds:.1f}s{job}")
     if ref.results_json.is_file():
         console.print(f"  results     {ref.results_json.relative_to(catalogue.root)}")
     else:
@@ -352,6 +357,49 @@ def verify(
     console.print(f"\n[bold]{ref.capsule.id}[/] → {_styled_status(report.status)}")
     if report.status is CapsuleStatus.REFUTED:
         console.print("[dim]  the hypothesis was not supported; this is a completed capsule, not a failed one[/]")
+
+
+@app.command()
+def tui() -> None:
+    """Open the interactive terminal interface."""
+    from capsule_corp.tui import CapsuleCorpApp
+
+    CapsuleCorpApp(_catalogue()).run()
+
+
+@app.command()
+def mcp() -> None:
+    """Serve the catalogue over MCP on stdio, for any MCP client to drive."""
+    from capsule_corp.mcp_server import serve
+
+    serve(_catalogue().root)
+
+
+@app.command()
+def doctor() -> None:
+    """Check that everything capsule-corp depends on is present and configured."""
+    from capsule_corp.doctor import run_checks
+
+    try:
+        root: Path | None = _catalogue().root
+    except CatalogueError:
+        root = None
+    checks = run_checks(load_settings(root))
+
+    table = Table(box=None, pad_edge=False)
+    table.add_column("")
+    table.add_column("check", style="bold")
+    table.add_column("detail")
+    for check in checks:
+        mark = "[green]OK[/]" if check.ok else "[yellow]--[/]"
+        detail = check.detail + (f"  [dim]{check.advice}[/]" if check.advice else "")
+        table.add_row(mark, check.name, detail)
+    console.print(table)
+
+    blocking = [c for c in checks if not c.ok and not c.name.startswith("executor:") and c.name != "pi mcp adapter"]
+    if blocking:
+        console.print(f"\n[yellow]{len(blocking)} issue(s) would stop capsules from being produced.[/]")
+        raise typer.Exit(1)
 
 
 @app.command()

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 230" width="640" height="230" role="img" aria-label="capsule-corp">
+  <title>capsule-corp</title>
+  <desc>A blue circular badge enclosing a white letter C, beside the capsule-corp wordmark.</desc>
+  <circle cx="126" cy="115" r="86" fill="#1D63B4"/>
+  <circle cx="126" cy="115" r="86" fill="none" stroke="#12406F" stroke-width="5"/>
+  <circle cx="126" cy="115" r="74" fill="none" stroke="#FFFFFF" stroke-width="3"/>
+  <path d="M 159.7 86.7 A 44 44 0 1 0 159.7 143.3" fill="none" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round"/>
+  <text x="244" y="107" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="42" font-weight="500" fill="#12406F">capsule-corp</text>
+  <text x="246" y="138" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#6B7280">packaging reproducible research questions</text>
+</svg>

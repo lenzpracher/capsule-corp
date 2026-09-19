@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" width="220" height="220" role="img" aria-label="capsule-corp">
+  <title>capsule-corp</title>
+  <desc>A blue circular badge enclosing a white letter C.</desc>
+  <circle cx="110" cy="110" r="103" fill="#1D63B4"/>
+  <circle cx="110" cy="110" r="103" fill="none" stroke="#12406F" stroke-width="6"/>
+  <circle cx="110" cy="110" r="88" fill="none" stroke="#FFFFFF" stroke-width="3.6"/>
+  <path d="M 150.2 76.4 A 52.7 52.7 0 1 0 150.2 143.6" fill="none" stroke="#FFFFFF" stroke-width="21.5" stroke-linecap="round"/>
+</svg>
