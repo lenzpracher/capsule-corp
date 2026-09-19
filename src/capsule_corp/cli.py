@@ -16,9 +16,11 @@ from rich.table import Table
 from rich.tree import Tree
 
 from capsule_corp import __version__
+from capsule_corp.execute import run_local
 from capsule_corp.index import Index
 from capsule_corp.models import CapsuleStatus
 from capsule_corp.phases import design as run_design, implement as run_implement, scaffold_capsule
+from capsule_corp.phases.verify import verify as run_verify
 from capsule_corp.runners import RunnerError, Usage, get_runner
 from capsule_corp.settings import global_settings_path, load_settings, project_settings_path, save_settings
 from capsule_corp.store import CapsuleRef, Catalogue, CatalogueError
@@ -276,6 +278,80 @@ def scaffold(
         return
     for name in written:
         console.print(f"[green]wrote[/] {name}")
+
+
+@app.command()
+def run(
+    ident: Annotated[str, typer.Argument(help="Capsule to run.")],
+    timeout: Annotated[int, typer.Option("--timeout", help="Seconds before the run is killed.")] = 0,
+) -> None:
+    """Execute a capsule's experiment locally."""
+    catalogue = _catalogue()
+    ref = catalogue.get(ident)
+    settings = load_settings(catalogue.root)
+
+    console.print(f"[cyan]running[/] {ref.capsule.dirname}")
+    outcome = run_local(catalogue, ref, settings, timeout_seconds=timeout or None)
+
+    if not outcome.ok:
+        err_console.print(f"[red]failed:[/] {outcome.error}")
+        err_console.print(f"[dim]  output: {outcome.stdout_path.relative_to(catalogue.root)}[/]")
+        raise typer.Exit(1)
+
+    console.print(f"[green]ran[/] {ref.capsule.dirname} in {outcome.duration_seconds:.1f}s")
+    if ref.results_json.is_file():
+        console.print(f"  results     {ref.results_json.relative_to(catalogue.root)}")
+    else:
+        console.print("[yellow]  warning:[/] no results/results.json was produced")
+
+
+@app.command()
+def verify(
+    ident: Annotated[str, typer.Argument(help="Capsule to verify.")],
+    strict: Annotated[bool, typer.Option("--strict", help="Let the judge's verdict change the outcome.")] = False,
+    no_judge: Annotated[bool, typer.Option("--no-judge", help="Run the deterministic checks only.")] = False,
+) -> None:
+    """Evaluate the pre-registered checks, then run the blinded judge."""
+    catalogue = _catalogue()
+    ref = catalogue.get(ident)
+    settings = load_settings(catalogue.root)
+
+    runner = None
+    if not no_judge:
+        try:
+            runner = get_runner(settings.agent)
+        except RunnerError as exc:
+            err_console.print(f"[red]error:[/] {exc}")
+            raise typer.Exit(1) from exc
+
+    console.print(f"[cyan]verifying[/] {ref.capsule.dirname}")
+    report = run_verify(catalogue, ref, runner, settings, strict=strict, skip_judge=no_judge)
+
+    for check in report.checks:
+        if check.error:
+            console.print(f"  [red]![/] {check.id} [dim]{check.error}[/]")
+        elif check.passed:
+            console.print(f"  [green]✓[/] {check.id} [dim]{check.detail}[/]")
+        else:
+            console.print(f"  [red]✗[/] {check.id} [dim]{check.detail}[/]")
+
+    passed = sum(1 for c in report.checks if c.passed)
+    console.print(f"  [dim]{passed}/{len(report.checks)} checks passed[/]")
+
+    if report.judge is not None:
+        verdict = {True: "[green]supports[/]", False: "[magenta]does not support[/]", None: "[yellow]unclear[/]"}[
+            report.judge.supports_hypothesis
+        ]
+        confidence = f" (confidence {report.judge.confidence:.2f})" if report.judge.confidence is not None else ""
+        console.print(f"\n  judge       {verdict}{confidence}")
+        if report.judge.reasoning:
+            console.print(f"  [dim]{report.judge.reasoning}[/]")
+        for concern in report.judge.concerns:
+            console.print(f"  [yellow]·[/] [dim]{concern}[/]")
+
+    console.print(f"\n[bold]{ref.capsule.id}[/] → {_styled_status(report.status)}")
+    if report.status is CapsuleStatus.REFUTED:
+        console.print("[dim]  the hypothesis was not supported; this is a completed capsule, not a failed one[/]")
 
 
 @app.command()

@@ -174,3 +174,53 @@ class Capsule(BaseModel):
     def has_reached(self, status: CapsuleStatus) -> bool:
         """True if this capsule is at least as far along as ``status``."""
         return status_rank(self.status) >= status_rank(status)
+
+
+class CheckOutcome(BaseModel):
+    """Serializable record of one evaluated check."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    kind: CheckKind
+    passed: bool
+    description: str = ""
+    detail: str = ""
+    error: str | None = None
+
+
+class JudgeVerdict(BaseModel):
+    """What the blinded judge concluded.
+
+    ``supports_hypothesis`` is deliberately three-valued: a judge that cannot tell
+    should say so rather than guess.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    supports_hypothesis: bool | None = None
+    confidence: float | None = None
+    reasoning: str = ""
+    concerns: list[str] = Field(default_factory=list)
+    provenance: Provenance = Field(default_factory=lambda: Provenance())
+    raw: str | None = None
+
+
+class Verification(BaseModel):
+    """The full verification record, persisted as ``verification.json``."""
+
+    model_config = ConfigDict(extra="allow")
+
+    verified_at: datetime = Field(default_factory=utcnow)
+    checks: list[CheckOutcome] = Field(default_factory=list)
+    # Deterministic assertions about the hypothesis itself.
+    predictions_held: bool = False
+    # Whether the capsule produced the artifacts it promised. A capsule can be
+    # incomplete (broken) or complete-but-refuted, and those are different outcomes.
+    artifacts_complete: bool = False
+    judge: JudgeVerdict | None = None
+    status: CapsuleStatus = CapsuleStatus.FAILED
+
+    @property
+    def failed_checks(self) -> list[CheckOutcome]:
+        return [c for c in self.checks if not c.passed]

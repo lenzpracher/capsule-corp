@@ -12,7 +12,11 @@ repos:
     rev: v0.3.0
     hooks:
       - id: ruff
-        args: [--fix, --select=C901, select=E501]
+        # Block style, not [flow, style]: YAML splits flow sequences on commas, which
+        # would turn --select=C901,E501 into a flag plus a bogus filename.
+        args:
+          - --fix
+          - --select=C901,E501
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy

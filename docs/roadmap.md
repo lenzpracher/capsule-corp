@@ -20,7 +20,7 @@ and `pixi.toml` generation.
 > _silently ignores_ a project's `.pi/settings.json`. `PiRunner` must pass `--approve`, or
 > per-capsule agent config will appear to do nothing.
 
-## M3 — Verification
+## M3 — Verification ✅
 
 The check evaluator (restricted AST, no `eval`), the blinded judge, `verification.json`, and
 `REPORT.md`. Blinding is enforced by copying only the permitted files into the judge's
@@ -30,6 +30,9 @@ workspace, not by asking the model nicely.
 
 Textual application over the same library API: folder tree, capsule detail pane, settings
 screen, run/verify keybinds, and a live view of the run event stream.
+
+> Local execution (`capsule run`) shipped early with M3, since the verification slice is
+> untestable without it. M5 generalises it behind the `Executor` protocol.
 
 ## M5 — Compute
 

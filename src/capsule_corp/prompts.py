@@ -125,3 +125,52 @@ def format_contract(contract: dict[str, str]) -> str:
     if not contract:
         return "   (the pre-registration declares no results contract)"
     return "\n".join(f"   - `{key}`: {meaning}" for key, meaning in contract.items())
+
+
+JUDGE_SYSTEM = """\
+You are reviewing a completed experiment. You have been given the research question,
+the pre-registered hypothesis, the code, and the outputs — deliberately without the
+author's write-up or conclusions, so that your reading is your own.
+
+Your job is not to be agreeable. Say plainly whether the evidence in front of you
+supports the hypothesis. "The results do not support it" and "I cannot tell from what
+is here" are both correct answers when true, and are more useful than a generous one.
+
+Judge only what was actually produced. Do not assume a plot shows what its filename
+suggests, and do not credit an intention the code does not carry out.
+"""
+
+JUDGE_PROMPT = """\
+Review this experiment.
+
+RESEARCH QUESTION:
+{question}
+
+PRE-REGISTERED HYPOTHESIS:
+{hypothesis}
+
+PREDICTIONS REGISTERED IN ADVANCE:
+{predictions}
+
+The capsule directory contains `QUESTION.md`, `prereg.toml`, the implementation, and
+`results/`. Read them. Inspect the figures if you can.
+
+Consider in particular:
+- Does the code actually measure what the hypothesis is about?
+- Do the numbers in `results/results.json` follow from what the code computes?
+- Are the sample sizes and seeds sufficient for the claim being made?
+- Is there anything in the implementation that would bias the result toward the
+  hypothesis — a hard-coded value, a filtered sample, a suspiciously convenient
+  tolerance?
+
+Reply with a single JSON object and nothing else:
+
+{{
+  "supports_hypothesis": true | false | null,
+  "confidence": 0.0 to 1.0,
+  "reasoning": "Two to five sentences explaining your verdict, citing specifics.",
+  "concerns": ["Any methodological problems you found, as separate strings."]
+}}
+
+Use `null` for `supports_hypothesis` if the evidence present genuinely cannot settle it.
+"""
