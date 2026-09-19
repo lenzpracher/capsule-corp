@@ -223,3 +223,6 @@ __marimo__/
 
 # capsule-corp local index (rebuildable from files)
 .capsule-corp/index.db
+
+# built docs site
+site/

@@ -1,0 +1,81 @@
+:root {
+  --md-primary-fg-color: #1d63b4;
+  --md-primary-fg-color--light: #4a86cc;
+  --md-primary-fg-color--dark: #12406f;
+  --md-accent-fg-color: #1d63b4;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #4a86cc;
+  --md-accent-fg-color: #6fa3db;
+}
+
+.cc-hero {
+  text-align: center;
+  padding: 1.5rem 0 0.5rem;
+}
+
+.cc-hero .cc-mark {
+  width: 104px;
+  height: 104px;
+}
+
+/* The wordmark is text rather than part of the image so it follows the theme;
+   the navy in the lockup is unreadable on a dark background. */
+.md-typeset .cc-hero h1 {
+  margin: 0.4rem 0 0;
+  font-family: var(--md-code-font-family), monospace;
+  font-size: 2.1rem;
+  font-weight: 500;
+  color: var(--md-default-fg-color);
+  letter-spacing: -0.02em;
+}
+
+.cc-tagline {
+  font-size: 1.15rem;
+  color: var(--md-default-fg-color--light);
+  margin: 0.5rem auto 1.5rem;
+  max-width: 34rem;
+}
+
+.cc-install {
+  max-width: 44rem;
+  margin: 0 auto 2rem;
+}
+
+.cc-lede {
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.md-typeset .cc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.md-typeset .cc-grid > div {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.4rem;
+  padding: 0.9rem 1.1rem;
+}
+
+.md-typeset .cc-grid h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--md-primary-fg-color);
+}
+
+.md-typeset .cc-grid p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+/* The phase cards are not linkable sections; their permalinks are just noise. */
+.md-typeset .cc-grid .headerlink {
+  display: none;
+}

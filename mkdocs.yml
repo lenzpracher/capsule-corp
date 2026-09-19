@@ -1,0 +1,77 @@
+site_name: capsule-corp
+site_description: Packaging reproducible research questions
+site_url: https://lenzpracher.github.io/capsule-corp/
+repo_url: https://github.com/lenzpracher/capsule-corp
+repo_name: lenzpracher/capsule-corp
+edit_uri: edit/main/docs/
+copyright: MIT licensed
+
+theme:
+  name: material
+  logo: assets/logo-mark.svg
+  favicon: assets/logo-mark.svg
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - toc.follow
+
+extra_css:
+  - assets/extra.css
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - How it works:
+      - Capsules: capsules.md
+      - Verification: verification.md
+  - Running elsewhere: compute.md
+  - MCP: mcp.md
+  - Roadmap: roadmap.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+
+plugins:
+  - search
+
+hooks:
+  - docs_hooks.py
+
+exclude_docs: |
+  assets/README.md
