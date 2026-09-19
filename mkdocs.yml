@@ -49,6 +49,7 @@ nav:
   - How it works:
       - Capsules: capsules.md
       - Verification: verification.md
+  - Exporting: export.md
   - Running elsewhere: compute.md
   - MCP: mcp.md
   - Roadmap: roadmap.md

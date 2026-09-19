@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from capsule_corp.models import Provenance
 
@@ -42,6 +43,9 @@ class AgentRequest:
     no_builtin_tools: bool = False
     session_id: str | None = None
     timeout_seconds: int = 3600
+    # Called with each parsed event as it arrives. A phase can take minutes; without
+    # this the user watches a blank terminal and cannot tell working from hung.
+    on_event: Callable[[dict[str, Any]], None] | None = None
 
 
 @dataclass

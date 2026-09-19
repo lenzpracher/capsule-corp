@@ -106,22 +106,12 @@ class PiRunner:
             raise RunnerError(f"could not start {self.binary}: {exc}") from exc
 
         collector = _EventCollector()
-        timed_out = False
 
         sink: IO[str] | nullcontext[None] = (
             events_path.open("w", encoding="utf-8") if events_path is not None else nullcontext()
         )
         with sink as handle, process:
-            assert process.stdout is not None
-            deadline = time.monotonic() + request.timeout_seconds
-            for line in process.stdout:
-                if handle is not None:
-                    handle.write(line)
-                collector.feed(line)
-                if time.monotonic() > deadline:
-                    timed_out = True
-                    process.kill()
-                    break
+            timed_out = _stream(process, handle, collector, request)
             stderr = process.stderr.read() if process.stderr else ""
 
         exit_code = process.returncode or 0
@@ -175,15 +165,12 @@ class _EventCollector:
         self.error_message: str | None = None
 
     def feed(self, line: str) -> None:
-        line = line.strip()
-        if not line:
-            return
-        try:
-            event: dict[str, Any] = json.loads(line)
-        except json.JSONDecodeError:
-            # pi may interleave non-JSON diagnostics; they are not fatal.
-            return
+        """Parse a raw stream line and fold it in."""
+        event = _parse_line(line)
+        if event is not None:
+            self.feed_event(event)
 
+    def feed_event(self, event: dict[str, Any]) -> None:
         kind = event.get("type")
         if kind == "session":
             self.session_id = event.get("id")
@@ -205,6 +192,41 @@ class _EventCollector:
         if text:
             self.text = text
         self.usage = _parse_usage(message.get("usage")) or self.usage
+
+
+def _stream(
+    process: "subprocess.Popen[str]",
+    handle: IO[str] | None,
+    collector: "_EventCollector",
+    request: AgentRequest,
+) -> bool:
+    """Consume pi's output, tee-ing it and fanning events out. True if it timed out."""
+    assert process.stdout is not None
+    deadline = time.monotonic() + request.timeout_seconds
+    for line in process.stdout:
+        if handle is not None:
+            handle.write(line)
+        event = _parse_line(line)
+        if event is not None:
+            collector.feed_event(event)
+            if request.on_event is not None:
+                request.on_event(event)
+        if time.monotonic() > deadline:
+            process.kill()
+            return True
+    return False
+
+
+def _parse_line(line: str) -> dict[str, Any] | None:
+    """Parse one stream line, tolerating the non-JSON diagnostics pi may interleave."""
+    line = line.strip()
+    if not line:
+        return None
+    try:
+        parsed = json.loads(line)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
 
 
 def _text_blocks(content: Any) -> Iterator[str]:

@@ -77,6 +77,17 @@ capsule design 0001
 matters most — you are deciding whether the registered predictions are the right ones,
 and after the next command they cannot change.
 
+Before it is frozen, the design is free to change, so iterate:
+
+```bash
+capsule design 0001 -n "Use 50 seeds, and state the i.i.d. assumption explicitly"
+```
+
+Re-running `design` on an unfrozen capsule **revises** the existing pre-registration
+rather than starting over. Pass `--fresh` if you do want to start over. You can also
+just edit `prereg.toml` by hand — it is plain TOML, and nothing about the tool
+requires you to go through the model.
+
 ```bash
 capsule freeze 0001
 capsule implement 0001
@@ -95,6 +106,33 @@ verifying 0001-bernoulli-standard-error-scaling
 
 0001 → verified
 ```
+
+## Reading the code
+
+A capsule you cannot inspect is automated, not reproducible.
+
+```bash
+capsule open 0001                  # open the capsule in VS Code
+capsule open 0001 --file run.py    # or one file
+capsule open 0001 --editor vim
+```
+
+`capsule open` uses `$VISUAL`/`$EDITOR` if set, then `editor.command` in settings, then
+falls back to whichever of `code`, `cursor`, `zed`, `subl`, `vim`, `nano` it can find.
+
+In the TUI, press `e` for a built-in file browser and editor with syntax highlighting,
+or `o` to hand the capsule to your external editor. A frozen `prereg.toml` is readable
+there but not editable — you should always be able to read the registration you are
+being held to.
+
+## Attaching a capsule to a paper
+
+```bash
+capsule export 0001                     # supplementary-materials zip
+capsule export 0001 --format markdown   # an appendix
+```
+
+See [Exporting](export.md).
 
 ## Organising a catalogue
 

@@ -91,11 +91,37 @@ error: pre-registration of capsule 0001 changed after freezing
 create a new capsule for the revised prediction.
 ```
 
-!!! warning "Freezing is deliberately irreversible"
+## Revising a frozen pre-registration
 
-    If a registered prediction turns out to be wrong, that is a finding. Create a new
-    capsule for the revised question rather than amending the old one — the old one is
-    the record that you predicted something else first.
+Sometimes a registration is simply wrong before any results exist — a check references
+a key the contract does not declare, a figure path is misspelled, a threshold is a
+typo. Starting a new capsule for that is pointless bookkeeping.
+
+```bash
+capsule unfreeze 0001 --reason "the slope check referenced a key the contract omits"
+```
+
+This is not an undo. It:
+
+- archives the superseded `prereg.toml` and `.prereg.lock` under `.prereg-history/`,
+- records your reason, the superseded hash, and **whether results already existed**,
+- moves any existing `verification.json` into the archive, since that verdict was
+  reached against predictions that no longer apply,
+- returns the capsule to `designed` so it can be revised and re-frozen.
+
+The revision count is then reported in `capsule show`, in the TUI, and in **every
+export**, permanently.
+
+!!! warning "Revising after seeing results is a different act"
+
+    Fixing a typo before anything has run is housekeeping. Changing a prediction after
+    an outcome is visible is the exact thing pre-registration exists to prevent — so
+    the record notes which one happened, and the CLI warns you before letting you do
+    the second one.
+
+    If the prediction was substantively wrong rather than mistyped, prefer a new
+    capsule. The old one is the record that you expected something else first, and
+    that record is worth keeping.
 
 ## Provenance
 

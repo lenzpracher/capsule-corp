@@ -103,3 +103,40 @@ def test_settings_show_reports_inherit(workspace: Path) -> None:
     result = runner.invoke(app, ["settings", "show"])
     assert result.exit_code == 0
     assert "inherit from pi" in result.stdout
+
+
+def test_help_lists_the_lifecycle_in_running_order() -> None:
+    """The order commands are listed in is documentation: design precedes freeze.
+
+    Alphabetical ordering would put `verify` before `design` and obscure the method.
+    """
+    from capsule_corp.cli import CANONICAL_ORDER
+
+    lifecycle = ["new", "design", "freeze", "implement", "run", "verify"]
+    positions = [CANONICAL_ORDER.index(name) for name in lifecycle]
+    assert positions == sorted(positions), "the lifecycle must read in the order you run it"
+    # unfreeze is the counterpart to freeze, so it belongs beside it rather than
+    # wherever it happened to be added.
+    assert CANONICAL_ORDER.index("unfreeze") == CANONICAL_ORDER.index("freeze") + 1
+
+
+def test_every_command_is_ordered() -> None:
+    """A new command must be placed deliberately, not appended to the end by accident."""
+    from capsule_corp.cli import CANONICAL_ORDER, app
+
+    names: set[str] = set()
+    for command in app.registered_commands:
+        if command.name:
+            names.add(command.name)
+        elif command.callback is not None:
+            names.add(command.callback.__name__.replace("_", "-"))
+
+    missing = sorted(names - set(CANONICAL_ORDER))
+    assert not missing, f"commands missing from CANONICAL_ORDER: {missing}"
+
+
+def test_help_renders_grouped_panels(workspace: Path) -> None:
+    result = runner.invoke(app, ["--help"])
+    assert result.exit_code == 0
+    for panel in ("Lifecycle", "Browsing", "Organising", "Interfaces", "Setup"):
+        assert panel in result.stdout

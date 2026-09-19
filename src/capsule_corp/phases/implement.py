@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from capsule_corp.models import CapsuleStatus
 from capsule_corp.phases.scaffold import scaffold_capsule
@@ -27,6 +29,7 @@ def implement(
     ref: CapsuleRef,
     runner: Runner,
     settings: Settings,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
 ) -> ImplementOutcome:
     """Run the implementing agent between two pre-registration hash checks.
 
@@ -53,6 +56,7 @@ def implement(
             cwd=ref.path,
             system_append=IMPLEMENT_SYSTEM,
             timeout_seconds=settings.agent.timeout_seconds,
+            on_event=on_event,
         ),
         events_path=run_dir / "events.jsonl",
     )

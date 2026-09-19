@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from textual.widgets import RichLog, Tree
+from textual.widgets import RichLog, TextArea, Tree
 
 from capsule_corp.models import CapsuleStatus
 from capsule_corp.phases.design import design
@@ -136,3 +136,88 @@ def test_refuted_and_failed_are_visually_distinct() -> None:
     """A refuted hypothesis is a result, not a breakage; it must not look like one."""
     assert STATUS_STYLE[CapsuleStatus.REFUTED] != STATUS_STYLE[CapsuleStatus.FAILED]
     assert STATUS_GLYPH[CapsuleStatus.REFUTED] != STATUS_GLYPH[CapsuleStatus.FAILED]
+
+
+@pytest.mark.anyio
+async def test_code_screen_opens_and_shows_a_file(catalogue: Catalogue) -> None:
+    """Reading the generated code is one keystroke away, not a trip to an editor."""
+    from capsule_corp.tui.code import CodeScreen
+
+    ref = catalogue.create("Inspectable")
+    design(catalogue, ref, ScriptedRunner(_writes()), Settings())
+    (ref.path / "run.py").write_text("import numpy as np\nprint(np.pi)\n", encoding="utf-8")
+
+    app = CapsuleCorpApp(catalogue)
+    async with app.run_test() as pilot:
+        screen = CodeScreen(ref, frozen=False)
+        await app.push_screen(screen)
+        await pilot.pause()
+        screen.load_file(ref.path / "run.py")
+        await pilot.pause()
+        editor = screen.query_one("#editor", TextArea)
+        assert "import numpy" in editor.text
+        assert editor.read_only is False
+
+
+@pytest.mark.anyio
+async def test_code_screen_refuses_to_edit_a_frozen_prereg(catalogue: Catalogue) -> None:
+    """You can read the pre-registration you are held to; you cannot quietly edit it."""
+    from capsule_corp.tui.code import CodeScreen
+
+    ref = catalogue.create("Locked")
+    design(catalogue, ref, ScriptedRunner(_writes()), Settings())
+    catalogue.freeze(ref)
+    original = ref.prereg_path.read_text(encoding="utf-8")
+
+    app = CapsuleCorpApp(catalogue)
+    async with app.run_test() as pilot:
+        screen = CodeScreen(ref, frozen=True)
+        await app.push_screen(screen)
+        await pilot.pause()
+        screen.load_file(ref.prereg_path)
+        await pilot.pause()
+
+        editor = screen.query_one("#editor", TextArea)
+        assert editor.read_only is True, "a frozen pre-registration must not be editable"
+        assert "hypothesis" in editor.text, "but it must still be readable"
+
+        editor.read_only = False
+        editor.load_text('hypothesis = "something else"\n')
+        screen.action_save()
+        await pilot.pause()
+
+    assert ref.prereg_path.read_text(encoding="utf-8") == original
+
+
+@pytest.mark.anyio
+async def test_code_screen_saves_an_unfrozen_file(catalogue: Catalogue) -> None:
+    from capsule_corp.tui.code import CodeScreen
+
+    ref = catalogue.create("Editable")
+    (ref.path / "run.py").write_text("print(1)\n", encoding="utf-8")
+
+    app = CapsuleCorpApp(catalogue)
+    async with app.run_test() as pilot:
+        screen = CodeScreen(ref, frozen=False)
+        await app.push_screen(screen)
+        await pilot.pause()
+        screen.load_file(ref.path / "run.py")
+        await pilot.pause()
+        screen.query_one("#editor", TextArea).load_text("print(2)\n")
+        screen.action_save()
+        await pilot.pause()
+
+    assert (ref.path / "run.py").read_text(encoding="utf-8") == "print(2)\n"
+
+
+@pytest.mark.anyio
+async def test_detail_pane_reports_revisions(catalogue: Catalogue) -> None:
+    ref = catalogue.create("Revised")
+    design(catalogue, ref, ScriptedRunner(_writes()), Settings())
+    catalogue.freeze(ref)
+    catalogue.unfreeze(ref, reason="a check was wrong")
+
+    app = CapsuleCorpApp(catalogue)
+    async with app.run_test():
+        rendered = app.render_detail(catalogue.get("0001"))
+    assert "revised" in rendered

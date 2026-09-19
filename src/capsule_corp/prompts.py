@@ -13,6 +13,12 @@ The defining constraint: everything you write now is frozen before any code exis
 cannot be changed afterwards. Write predictions that could genuinely turn out false. A
 check that cannot fail is worthless, and a hypothesis that survives every possible
 outcome is not a hypothesis.
+
+Be sparing with assumptions. Every extra one narrows what the result can tell anyone,
+and an assumption you did not notice you were making is the usual reason a finding
+turns out not to mean what it appeared to mean. Prefer the plainest design that could
+answer the question. Where you must assume something, say so explicitly rather than
+letting it sit implicit in the analysis plan.
 """
 
 DESIGN_PROMPT = """\
@@ -34,6 +40,14 @@ hypothesis = "One sentence stating what you predict, specifically enough to be w
 predictions = [
   "A concrete, falsifiable consequence.",
   "Another one.",
+]
+# Every simplification this design rests on. Keep this list short: prefer a design
+# that needs fewer assumptions over one that needs more. State each plainly, so a
+# reader can judge what the result does and does not cover. Aim for at most
+# {max_assumptions}; if you need more than that, the design is probably too elaborate.
+assumptions = [
+  "Samples are independent and identically distributed.",
+  "A fixed grid of n is sufficient; no adaptive stopping.",
 ]
 analysis_plan = "How the data is generated and analysed. Include sample sizes and seeds."
 
@@ -78,7 +92,8 @@ Rules for checks:
   check for a figure.
 
 Keep the experiment small enough to run in a few minutes on a laptop unless the
-question genuinely requires more.
+question genuinely requires more. A simpler design that needs fewer assumptions is
+worth more than an elaborate one that needs many.
 """
 
 IMPLEMENT_SYSTEM = """\
@@ -173,4 +188,23 @@ Reply with a single JSON object and nothing else:
 }}
 
 Use `null` for `supports_hypothesis` if the evidence present genuinely cannot settle it.
+"""
+
+
+REVISE_PROMPT = """\
+Revise the existing pre-registration for this capsule. It is not frozen yet, so it can
+still change — that is the point of doing this now rather than later.
+
+TITLE: {title}
+QUESTION: {question}
+
+WHAT TO CHANGE:
+{note}
+
+The current `QUESTION.md` and `prereg.toml` are in the working directory. Read them
+first. Keep everything the revision does not touch: the point is to refine this
+design, not to start a different one. Rewrite both files in place, in the same schema.
+
+If the requested change would make a check unfalsifiable, or would add an assumption
+that is not worth its cost, say so in your reply and leave that part alone.
 """

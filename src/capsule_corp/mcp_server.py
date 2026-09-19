@@ -71,6 +71,7 @@ def _detail(catalogue: Catalogue, ref: CapsuleRef) -> dict[str, Any]:
         detail["prereg"] = {
             "hypothesis": prereg.hypothesis,
             "predictions": prereg.predictions,
+            "assumptions": prereg.assumptions,
             "analysis_plan": prereg.analysis_plan,
             "results_contract": prereg.results_contract,
             "checks": [{"id": c.id, "kind": str(c.kind), "description": c.description} for c in prereg.checks],
