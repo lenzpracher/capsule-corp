@@ -109,6 +109,9 @@ class Prereg(BaseModel):
     hypothesis: str
     predictions: list[str] = Field(default_factory=list)
     analysis_plan: str = ""
+    # Keys the implementation must write into results/results.json, mapped to what each
+    # one means. The checks reference these, so the contract is what makes them runnable.
+    results_contract: dict[str, str] = Field(default_factory=dict)
     checks: list[Check] = Field(default_factory=list)
 
     @field_validator("checks")
@@ -144,6 +147,8 @@ class Provenance(BaseModel):
     git_sha: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    total_tokens: int | None = None
+    cost_usd: float | None = None
 
 
 class Capsule(BaseModel):

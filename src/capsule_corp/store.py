@@ -8,6 +8,7 @@ away, and stays editable by hand.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import subprocess
 import unicodedata
@@ -18,7 +19,7 @@ from typing import Any
 
 import tomlkit
 
-from capsule_corp.models import Capsule, CapsuleStatus, Prereg, utcnow
+from capsule_corp.models import Capsule, CapsuleStatus, Prereg, Provenance, utcnow
 
 CAPSULES_DIR = "capsules"
 STATE_DIR = ".capsule-corp"
@@ -295,6 +296,41 @@ class Catalogue:
         ref = self.get(ident)
         shutil.rmtree(ref.path)
         return ref.path
+
+    # ------------------------------------------------------------------- runs
+
+    def new_run_dir(self, ref: CapsuleRef, phase: str) -> Path:
+        """Create a fresh timestamped directory for one agent phase's artifacts."""
+        stamp = utcnow().strftime("%Y%m%dT%H%M%S")
+        base = ref.runs_path / f"{stamp}-{phase}"
+        candidate = base
+        suffix = 1
+        while candidate.exists():
+            candidate = ref.runs_path / f"{stamp}-{phase}-{suffix}"
+            suffix += 1
+        candidate.mkdir(parents=True)
+        return candidate
+
+    def write_run_meta(
+        self,
+        run_dir: Path,
+        *,
+        phase: str,
+        provenance: Provenance,
+        ok: bool,
+        error: str | None = None,
+    ) -> Path:
+        """Record who produced this run and what it cost, next to its event stream."""
+        meta = {
+            "phase": phase,
+            "ok": ok,
+            "error": error,
+            "git_sha": _git_sha(self.root),
+            "provenance": provenance.model_dump(mode="json", exclude_none=True),
+        }
+        target = run_dir / "meta.json"
+        target.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+        return target
 
     # ------------------------------------------------------------- pre-registration
 

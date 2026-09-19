@@ -18,6 +18,8 @@ from rich.tree import Tree
 from capsule_corp import __version__
 from capsule_corp.index import Index
 from capsule_corp.models import CapsuleStatus
+from capsule_corp.phases import design as run_design, implement as run_implement, scaffold_capsule
+from capsule_corp.runners import RunnerError, Usage, get_runner
 from capsule_corp.settings import global_settings_path, load_settings, project_settings_path, save_settings
 from capsule_corp.store import CapsuleRef, Catalogue, CatalogueError
 
@@ -47,6 +49,12 @@ STATUS_STYLE: dict[CapsuleStatus, str] = {
 
 def _styled_status(status: CapsuleStatus) -> str:
     return f"[{STATUS_STYLE[status]}]{status}[/]"
+
+
+def _print_cost(usage: Usage) -> None:
+    """Show what an agent phase cost, so a research programme's spend stays visible."""
+    if usage.total_tokens:
+        console.print(f"  tokens      {usage.total_tokens:,}  [dim](${usage.cost_usd:.4f})[/]")
 
 
 def _catalogue() -> Catalogue:
@@ -201,6 +209,73 @@ def freeze(ident: Annotated[str, typer.Argument(help="Capsule to freeze.")]) -> 
     console.print(f"[green]frozen[/] {ref.capsule.dirname}")
     console.print(f"  sha256 {digest[:16]}…")
     console.print("[dim]  predictions and checks are now fixed; implementation can begin[/]")
+
+
+@app.command()
+def design(
+    ident: Annotated[str, typer.Argument(help="Capsule to design.")],
+    note: Annotated[str, typer.Option("--note", "-n", help="Extra constraints for the designer.")] = "",
+) -> None:
+    """Write the question and the pre-registration, before any code exists."""
+    catalogue = _catalogue()
+    ref = catalogue.get(ident)
+    settings = load_settings(catalogue.root)
+
+    try:
+        runner = get_runner(settings.agent)
+    except RunnerError as exc:
+        err_console.print(f"[red]error:[/] {exc}")
+        raise typer.Exit(1) from exc
+
+    console.print(f"[cyan]designing[/] {ref.capsule.dirname} [dim](runner: {settings.agent.runner})[/]")
+    outcome = run_design(catalogue, ref, runner, settings, extra_instructions=note)
+
+    provenance = outcome.result.provenance
+    console.print(f"[green]designed[/] {ref.capsule.dirname}")
+    console.print(f"  hypothesis  {outcome.prereg.hypothesis}")
+    console.print(f"  checks      {len(outcome.prereg.checks)}")
+    console.print(f"  model       {provenance.provider}/{provenance.model}")
+    _print_cost(outcome.result.usage)
+    console.print(f"[dim]  review prereg.toml, then lock it with 'capsule freeze {ref.capsule.id}'[/]")
+
+
+@app.command()
+def implement(ident: Annotated[str, typer.Argument(help="Capsule to implement.")]) -> None:
+    """Write the code for a frozen capsule."""
+    catalogue = _catalogue()
+    ref = catalogue.get(ident)
+    settings = load_settings(catalogue.root)
+
+    try:
+        runner = get_runner(settings.agent)
+    except RunnerError as exc:
+        err_console.print(f"[red]error:[/] {exc}")
+        raise typer.Exit(1) from exc
+
+    console.print(f"[cyan]implementing[/] {ref.capsule.dirname}")
+    outcome = run_implement(catalogue, ref, runner, settings)
+
+    provenance = outcome.result.provenance
+    console.print(f"[green]implemented[/] {ref.capsule.dirname}")
+    console.print(f"  model       {provenance.provider}/{provenance.model}")
+    _print_cost(outcome.result.usage)
+    console.print("[dim]  pre-registration hash verified before and after[/]")
+
+
+@app.command()
+def scaffold(
+    ident: Annotated[str, typer.Argument(help="Capsule to scaffold.")],
+    overwrite: Annotated[bool, typer.Option("--overwrite", help="Replace existing files.")] = False,
+) -> None:
+    """Write the per-capsule pixi and agent configuration."""
+    catalogue = _catalogue()
+    ref = catalogue.get(ident)
+    written = scaffold_capsule(ref, load_settings(catalogue.root), overwrite=overwrite)
+    if not written:
+        console.print("[dim]nothing to write; pass --overwrite to replace existing files[/]")
+        return
+    for name in written:
+        console.print(f"[green]wrote[/] {name}")
 
 
 @app.command()

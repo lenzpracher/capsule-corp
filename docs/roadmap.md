@@ -8,7 +8,7 @@ Catalogue storage format, freeze/tamper detection, settings, SQLite index, and t
 (`init`, `new`, `list`, `tree`, `show`, `mkdir`, `mv`, `rm`, `freeze`, `reindex`, `search`,
 `settings`).
 
-## M2 — Agent loop
+## M2 — Agent loop ✅
 
 `Runner` protocol and `PiRunner`, which shells out to `pi -p --mode json` and parses the JSONL
 event stream. Design phase (writes `QUESTION.md` + `prereg.toml`) and implement phase (writes
