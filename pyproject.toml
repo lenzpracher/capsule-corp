@@ -3,7 +3,7 @@ requires = ["setuptools>=64", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "capsule-corp"
+name = "capscorp"
 version = "0.1.0"
 description = "A terminal catalogue of reproducible, pre-registered research capsules"
 readme = "README.md"

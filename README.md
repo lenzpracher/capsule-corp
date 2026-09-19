@@ -55,8 +55,11 @@ in its own isolated environment. No sudo. As with any installer of this shape, r
 Or, equivalently:
 
 ```bash
-uv tool install git+https://github.com/lenzpracher/capsule-corp
+uv tool install capscorp
 ```
+
+The command is `capsule`; the package is `capscorp` and the repository is
+`capsule-corp`. Only the first is something you type.
 
 To hack on capsule-corp itself, clone it and install editable so the command tracks
 your working copy:

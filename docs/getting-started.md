@@ -19,8 +19,11 @@
 === "uv"
 
     ```bash
-    uv tool install git+https://github.com/lenzpracher/capsule-corp
+    uv tool install capscorp
     ```
+
+    The command is `capsule`; the package is `capscorp` and the repository is
+    `capsule-corp`. Only the first is something you type.
 
 === "From a clone"
 

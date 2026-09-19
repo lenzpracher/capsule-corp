@@ -54,6 +54,7 @@ nav:
   - Exporting: export.md
   - Running elsewhere: compute.md
   - MCP: mcp.md
+  - Releasing: releasing.md
   - Roadmap: roadmap.md
 
 markdown_extensions:

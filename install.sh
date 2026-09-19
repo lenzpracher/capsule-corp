@@ -12,9 +12,12 @@
 
 set -eu
 
+PACKAGE="${CAPSULE_CORP_PACKAGE:-capscorp}"
 REPO="${CAPSULE_CORP_REPO:-lenzpracher/capsule-corp}"
-REF="${CAPSULE_CORP_REF:-main}"
-SOURCE="git+https://github.com/${REPO}@${REF}"
+REF="${CAPSULE_CORP_REF:-}"
+# Released versions come from PyPI, which uv hash-verifies. Set CAPSULE_CORP_REF to
+# install a branch or tag straight from git instead.
+GIT_SOURCE="git+https://github.com/${REPO}@${REF:-main}"
 
 BOLD=""
 DIM=""
@@ -71,8 +74,17 @@ fi
 
 # --- capsule-corp ---------------------------------------------------------
 
-say "installing capsule ${DIM}from ${REPO}@${REF}${RESET}"
-uv tool install --force "$SOURCE" >/dev/null 2>&1 || uv tool install --force "$SOURCE"
+if [ -n "$REF" ]; then
+    say "installing capsule ${DIM}from ${REPO}@${REF}${RESET}"
+    uv tool install --force "$GIT_SOURCE" >/dev/null 2>&1 || uv tool install --force "$GIT_SOURCE"
+else
+    say "installing capsule ${DIM}from PyPI (${PACKAGE})${RESET}"
+    if ! uv tool install --force "$PACKAGE" >/dev/null 2>&1; then
+        # Not published yet, or PyPI is unreachable. Fall back to the repository.
+        warn "could not install ${PACKAGE} from PyPI; falling back to ${REPO}@main"
+        uv tool install --force "$GIT_SOURCE" >/dev/null 2>&1 || uv tool install --force "$GIT_SOURCE"
+    fi
+fi
 
 BIN_DIR="$(uv tool dir --bin 2>/dev/null || echo "$HOME/.local/bin")"
 [ -x "$BIN_DIR/capsule" ] || die "installation finished but $BIN_DIR/capsule is missing"

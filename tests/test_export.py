@@ -115,3 +115,30 @@ def test_export_flags_revisions_made_after_results_existed(catalogue: Catalogue,
     md = export_markdown(catalogue, finished)
     assert "after results already existed" in md
     assert "do not carry the evidential" in md
+
+
+def test_bundle_withholds_agent_transcripts(catalogue: Catalogue, finished: CapsuleRef, tmp_path: Path) -> None:
+    """A bundle is meant to be published, and transcripts record everything the agent
+    read -- file contents, command output, and paths carrying the author's username."""
+    run = finished.runs_path / "20260101T000000-design"
+    run.mkdir(parents=True, exist_ok=True)
+    (run / "events.jsonl").write_text('{"secret":"/Users/someone/private/notes.txt"}\n', encoding="utf-8")
+    (run / "meta.json").write_text('{"phase":"design","ok":true}', encoding="utf-8")
+
+    result = export_capsule(catalogue, finished, "bundle", tmp_path / "out.zip")
+    with zipfile.ZipFile(result.path) as archive:
+        names = archive.namelist()
+
+    assert not any(n.endswith("events.jsonl") for n in names), "transcripts must not be published"
+    # Provenance without content is still useful, so meta.json stays.
+    assert any(n.endswith("runs/20260101T000000-design/meta.json") for n in names)
+
+
+def test_transcripts_can_be_included_deliberately(catalogue: Catalogue, finished: CapsuleRef, tmp_path: Path) -> None:
+    run = finished.runs_path / "20260101T000000-design"
+    run.mkdir(parents=True, exist_ok=True)
+    (run / "events.jsonl").write_text("{}\n", encoding="utf-8")
+
+    result = export_capsule(catalogue, finished, "bundle", tmp_path / "out.zip", include_transcripts=True)
+    with zipfile.ZipFile(result.path) as archive:
+        assert any(n.endswith("events.jsonl") for n in archive.namelist())
