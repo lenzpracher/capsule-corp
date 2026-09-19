@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/assets/logo.svg" alt="capsule-corp" width="440">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
+    <img src="docs/assets/logo.svg" alt="capsule" width="440">
+  </picture>
 </p>
 
 # capsule-corp
@@ -164,3 +167,11 @@ plugged in.
 ## License
 
 MIT
+
+## Disclaimer
+
+capsule-corp is an independent, unaffiliated open-source project. It is not
+associated with, endorsed by, or sponsored by Bird Studio, Shueisha, Toei Animation,
+or Capsule Corporation Tokyo. "Dragon Ball" and "Capsule Corporation" are trademarks
+of their respective owners; the name and mark here are an affectionate nod, and no
+rights-holder artwork is used.

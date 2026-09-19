@@ -1,13 +1,15 @@
+/* Palette follows https://lenzpracher.github.io. The site's #6eb5ff is used as-is in
+   dark mode; light mode needs a darker blue for readable contrast on white. */
 :root {
   --md-primary-fg-color: #1d63b4;
-  --md-primary-fg-color--light: #4a86cc;
+  --md-primary-fg-color--light: #6eb5ff;
   --md-primary-fg-color--dark: #12406f;
   --md-accent-fg-color: #1d63b4;
 }
 
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color: #4a86cc;
-  --md-accent-fg-color: #6fa3db;
+  --md-primary-fg-color: #6eb5ff;
+  --md-accent-fg-color: #6eb5ff;
 }
 
 .cc-hero {
