@@ -6,7 +6,7 @@ hide:
 
 <div class="cc-hero">
   <img class="cc-mark" src="assets/logo-mark.svg" alt="">
-  <h1>capsule-corp</h1>
+  <h1>capsule</h1>
 </div>
 
 <p class="cc-tagline" markdown>
@@ -107,3 +107,13 @@ capsule run 0001 --on slurm
 
 [Get started :material-arrow-right:](getting-started.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/lenzpracher/capsule-corp){ .md-button }
+
+---
+
+!!! info "Disclaimer"
+
+    capsule-corp is an independent, unaffiliated open-source project. It is not
+    associated with, endorsed by, or sponsored by Bird Studio, Shueisha, Toei Animation,
+    or Capsule Corporation Tokyo. "Dragon Ball" and "Capsule Corporation" are trademarks
+    of their respective owners; the name and mark here are an affectionate nod, and no
+    rights-holder artwork is used.

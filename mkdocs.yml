@@ -1,10 +1,12 @@
-site_name: capsule-corp
+site_name: capsule
 site_description: Packaging reproducible research questions
 site_url: https://lenzpracher.github.io/capsule-corp/
 repo_url: https://github.com/lenzpracher/capsule-corp
 repo_name: lenzpracher/capsule-corp
 edit_uri: edit/main/docs/
-copyright: MIT licensed
+copyright: >
+  MIT licensed &middot; An independent project, not affiliated with or endorsed by
+  Bird Studio, Shueisha, Toei Animation, or Capsule Corporation Tokyo.
 
 theme:
   name: material
@@ -52,6 +54,7 @@ nav:
   - Exporting: export.md
   - Running elsewhere: compute.md
   - MCP: mcp.md
+  - Releasing: releasing.md
   - Roadmap: roadmap.md
 
 markdown_extensions:

@@ -1,18 +1,21 @@
 # Assets
 
-- `logo.svg` — the full lockup: badge plus wordmark. Used in the README.
+- `logo.svg` — the full lockup for light backgrounds.
+- `logo-dark.svg` — the same lockup for dark backgrounds.
 - `logo-mark.svg` — the badge alone, square, for avatars and favicons.
 
-The mark is a circled `C` drawn as a stroked arc rather than as type, so it centres
+The palette matches <https://lenzpracher.github.io>: `#6eb5ff` on `#262626`, with
+`#404040` for the outer ring. The C is a stroked arc rather than type, so it centres
 geometrically and renders identically regardless of which fonts a machine has.
 
-## On the Dragon Ball reference
+## Disclaimer
 
-The name and the blue badge are an affectionate nod to Capsule Corporation from Dragon
-Ball. None of the rights-holders' artwork is used or copied — this is our own drawing.
-The Capsule Corporation logo and the Dragon Ball marks belong to Bird Studio, Shueisha,
-and Toei Animation.
+capsule-corp is an independent, unaffiliated open-source project. It is not
+associated with, endorsed by, or sponsored by Bird Studio, Shueisha, Toei Animation,
+or Capsule Corporation Tokyo. "Dragon Ball" and "Capsule Corporation" are trademarks
+of their respective owners; the name and mark here are an affectionate nod, and no
+rights-holder artwork is used.
 
-Worth knowing if you fork this: capsule-corp is MIT licensed and meant to be
-redeployed, so the project should not claim this as a trademark or use it as commercial
-branding. Keep it as project decoration, or swap it for your own.
+None of the rights-holders' artwork is used or copied — this is our own drawing.
+Since capsule-corp is MIT licensed and meant to be redeployed, the project does not
+claim this as a trademark. Keep it as project decoration, or swap it for your own.

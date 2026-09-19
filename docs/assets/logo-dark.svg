@@ -5,6 +5,6 @@
   <circle cx="126" cy="115" r="86" fill="none" stroke="#404040" stroke-width="5"/>
   <circle cx="126" cy="115" r="74" fill="none" stroke="#6eb5ff" stroke-width="3"/>
   <path d="M 159.7 86.7 A 44 44 0 1 0 159.7 143.3" fill="none" stroke="#6eb5ff" stroke-width="18" stroke-linecap="round"/>
-  <text x="244" y="110" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="42" font-weight="500" fill="#1a1a1a">capsule</text>
-  <text x="246" y="141" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#6b7280">a terminal database for reproducible research</text>
+  <text x="244" y="110" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="42" font-weight="500" fill="#e0e0e0">capsule</text>
+  <text x="246" y="141" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#888888">a terminal database for reproducible research</text>
 </svg>

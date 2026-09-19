@@ -21,6 +21,16 @@ reader who unzips it knows what they are looking at without installing anything.
 pixi environment and `__pycache__` are excluded; `pixi.lock` is kept, since that is
 what actually makes the environment reproducible.
 
+!!! warning "Agent transcripts are withheld"
+
+    `runs/*/events.jsonl` is **not** included. A transcript records everything the
+    agent read — file contents, command output, and absolute paths carrying your
+    username — and a bundle is something you publish. The per-run `meta.json` is kept,
+    since that is provenance without content.
+
+    Pass `--include-transcripts` if you deliberately want the full record, and read
+    one first if the capsule touched anything private.
+
 **`markdown`** — an appendix for pasting into a paper or a supplement: provenance
 table, hypothesis, predictions, assumptions, analysis plan, the registered checks and
 their outcomes, the results JSON, figures, and the judge's verdict.

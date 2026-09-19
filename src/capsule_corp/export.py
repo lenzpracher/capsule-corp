@@ -26,10 +26,15 @@ from capsule_corp.store import CapsuleRef, Catalogue, CatalogueError
 
 FORMATS = ("bundle", "markdown", "html")
 
-# Excluded from the archive: environments are machine-specific and enormous, and raw
-# agent transcripts are large and rarely what a reader wants. pixi.lock stays, since
-# that is what actually makes the environment reproducible.
+# Excluded from the archive: environments are machine-specific and enormous.
+# pixi.lock stays, since that is what actually makes the environment reproducible.
 BUNDLE_EXCLUDES = (".pixi", "__pycache__", ".DS_Store")
+
+# Raw agent transcripts are withheld from exports by default. A bundle is meant to be
+# attached to a paper, and a transcript records everything the agent read: file
+# contents, command output, and absolute paths carrying the author's username. The
+# per-run meta.json is kept, because that is provenance without content.
+TRANSCRIPT_FILES = ("events.jsonl", "transcript.html")
 
 _LIST_ITEM = re.compile(r"^(- |\d+\. )")
 _ORDERED = re.compile(r"^\d+\. ")
@@ -90,18 +95,26 @@ def _digest(catalogue: Catalogue, ref: CapsuleRef) -> str:
         return ""
 
 
-def _is_excluded(path: Path, root: Path) -> bool:
-    return any(part in BUNDLE_EXCLUDES for part in path.relative_to(root).parts)
+def _is_excluded(path: Path, root: Path, include_transcripts: bool = False) -> bool:
+    if any(part in BUNDLE_EXCLUDES for part in path.relative_to(root).parts):
+        return True
+    return not include_transcripts and path.name in TRANSCRIPT_FILES
 
 
-def export_bundle(catalogue: Catalogue, ref: CapsuleRef, destination: Path) -> ExportResult:
-    """Zip the capsule as supplementary materials."""
+def export_bundle(
+    catalogue: Catalogue, ref: CapsuleRef, destination: Path, *, include_transcripts: bool = False
+) -> ExportResult:
+    """Zip the capsule as supplementary materials.
+
+    Agent transcripts are withheld unless ``include_transcripts`` is set; see
+    :data:`TRANSCRIPT_FILES`.
+    """
     destination.parent.mkdir(parents=True, exist_ok=True)
     prefix = ref.capsule.dirname
 
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(ref.path.rglob("*")):
-            if path.is_dir() or _is_excluded(path, ref.path):
+            if path.is_dir() or _is_excluded(path, ref.path, include_transcripts):
                 continue
             archive.write(path, arcname=f"{prefix}/{path.relative_to(ref.path)}")
         # A reader who unzips this should not have to install anything to know what
@@ -427,7 +440,14 @@ def _inline(text: str) -> str:
     return escaped
 
 
-def export_capsule(catalogue: Catalogue, ref: CapsuleRef, fmt: str, destination: Path | None = None) -> ExportResult:
+def export_capsule(
+    catalogue: Catalogue,
+    ref: CapsuleRef,
+    fmt: str,
+    destination: Path | None = None,
+    *,
+    include_transcripts: bool = False,
+) -> ExportResult:
     """Export a capsule in ``fmt``, returning where it landed."""
     if fmt not in FORMATS:
         raise ExportError(f"unknown format {fmt!r}; available: {', '.join(FORMATS)}")
@@ -439,7 +459,7 @@ def export_capsule(catalogue: Catalogue, ref: CapsuleRef, fmt: str, destination:
     target.parent.mkdir(parents=True, exist_ok=True)
 
     if fmt == "bundle":
-        return export_bundle(catalogue, ref, target)
+        return export_bundle(catalogue, ref, target, include_transcripts=include_transcripts)
 
     content = export_markdown(catalogue, ref) if fmt == "markdown" else export_html(catalogue, ref)
     target.write_text(content, encoding="utf-8")

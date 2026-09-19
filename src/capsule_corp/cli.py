@@ -587,6 +587,10 @@ def export(
     ident: Annotated[str, typer.Argument(help="Capsule to export.")],
     fmt: Annotated[str, typer.Option("--format", help=f"One of: {', '.join(FORMATS)}.")] = "bundle",
     out: Annotated[Path | None, typer.Option("--out", "-o", help="Destination file or directory.")] = None,
+    include_transcripts: Annotated[
+        bool,
+        typer.Option("--include-transcripts", help="Include raw agent transcripts (may contain local paths)."),
+    ] = False,
 ) -> None:
     """Export a capsule for attaching to a paper.
 
@@ -595,10 +599,12 @@ def export(
     """
     catalogue = _catalogue()
     ref = catalogue.get(ident)
-    result = export_capsule(catalogue, ref, fmt, out)
+    result = export_capsule(catalogue, ref, fmt, out, include_transcripts=include_transcripts)
 
     console.print(f"[green]exported[/] {ref.capsule.dirname} [dim]as {result.format}[/]")
     console.print(f"  {result.path}  [dim]{result.bytes_written:,} bytes[/]")
+    if result.format == "bundle" and not include_transcripts:
+        console.print("[dim]  agent transcripts withheld; pass --include-transcripts to add them[/]")
 
     revisions = catalogue.revisions(ref)
     if revisions:
