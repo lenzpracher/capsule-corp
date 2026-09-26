@@ -1,4 +1,22 @@
-# Getting started
+# capsule
+
+A terminal database for reproducible research questions.
+
+Each **capsule** is one empirically testable question, packaged so the result stays
+reproducible and cannot be quietly retrofitted to the conclusion. An agent writes the
+question, the hypothesis, and machine-checkable assertions that would falsify it
+_before any implementation exists_; those are then frozen by hash. A second agent
+writes the code, and the hash is verified before and after — if the pre-registration
+moved, the run fails.
+
+Verification has two layers: the pre-registered checks, evaluated mechanically with no
+model involved, and a **blinded** judge that reads the question, code, and outputs but
+never the write-up. A capsule whose hypothesis is refuted is a successful capsule; that
+outcome is recorded rather than treated as a failure.
+
+Capsules are primarily written by an LLM. Every artifact is plain text and editable by
+hand. See [Capsules](capsules.md) for the on-disk format and
+[Verification](verification.md) for how an outcome is decided.
 
 ## Install
 
