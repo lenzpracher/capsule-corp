@@ -46,7 +46,7 @@ extra_css:
   - assets/extra.css
 
 nav:
-  - Getting started: getting-started.md
+  - Getting started: index.md
   - How it works:
       - Capsules: capsules.md
       - Verification: verification.md
@@ -78,6 +78,3 @@ hooks:
 
 exclude_docs: |
   assets/README.md
-
-not_in_nav: |
-  index.md
