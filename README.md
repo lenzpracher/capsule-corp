@@ -165,7 +165,7 @@ plugged in.
 
 ## Documentation
 
-<https://lenzpracher.github.io/capsule-corp/getting-started/>
+<https://lenzpracher.github.io/capsule-corp>
 
 ## License
 
